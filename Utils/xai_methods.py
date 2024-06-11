@@ -26,17 +26,17 @@ def get_attributions(Params, dataloaders, model):
                                                      split+1)
 
         # Specify target layers based on model and configuration
-        if fractal and model_name == "resnet18_lacunarity":
+        if fractal and model_name == "resnet18":
             target_layers = model.module.features[-1]
-        elif fusion and model_name == "resnet18_lacunarity":
+        elif fusion and model_name == "resnet18":
             target_layers = model.module.features[-1]
-        elif model_name == "resnet18_lacunarity":
+        elif model_name == "resnet18":
             target_layers = [model.module.layer4[-1]]
-        elif model_name == "convnext_lacunarity":
+        elif model_name == "convnext_tiny":
             target_layers = [model.module.features[-1]]
-        elif fusion and model_name == "densenet161_lacunarity":
+        elif fusion and model_name == "densenet161":
             target_layers = [model.module.features.norm5 ]
-        elif model_name == "densenet161_lacunarity":
+        elif model_name == "densenet161":
             target_layers = [model.module.features[-1]]
 
         if parallel:
