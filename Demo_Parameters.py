@@ -27,9 +27,7 @@ def Parameters(args):
     
     #Select dataset
     data_selection = args.data_selection
-    Dataset_names = {1: 'LeavesTex',
-                     2: 'PlantVillage',
-                     3: 'DeepWeeds'}
+    Dataset_names = {1: 'LungCells'}
     
     num_ftrs = {"resnet18": 512,
                 "densenet161": 2208,
@@ -88,7 +86,7 @@ def Parameters(args):
     #Set number of workers, i.e., how many subprocesses to use for data loading.
     #Usually set to 0 or 1. Can set to more if multiple machines are used.
     #Number of workers for experiments for two GPUs was three
-    num_workers = 3
+    num_workers = 1
 
     #Visualization of results parameters
     #Visualization parameters for figures
@@ -109,28 +107,20 @@ def Parameters(args):
         mode = 'Fine_Tuning'
     
     #Location of texture datasets
-    Data_dirs = {'LeavesTex': 'Datasets/LeavesTex1200',
-                'PlantVillage': 'Datasets/PlantVillage/plant_village_classification',
-                'DeepWeeds': 'Datasets/DeepWeeds/rangeland_weeds_australia'}
+    Data_dirs = {'LungCells': 'Datasets/Lung Cells SEM Images_group1_ME_overlap_NEW'}
     
     #Backbone architecture
     #Options are convnext_lacunarity, resnet18_lacunarity, densenet161_lacunarity
     Model_name = args.model
     
     #channels in each dataset
-    channels = {'LeavesTex': 3,
-                'PlantVillage': 3,
-                'DeepWeeds': 3}
+    channels = {'LungCells': 1}
     
     #Number of classes in each dataset
-    num_classes = {'LeavesTex': 20,
-                'PlantVillage': 39,
-                'DeepWeeds': 9}
+    num_classes = {'LungCells': 5}
     
     #Number of runs and/or splits for each dataset
-    Splits = {'LeavesTex': 3,
-                'PlantVillage': 3,
-                'DeepWeeds': 3}
+    Splits = {'LungCells': 3}
     
     Dataset = Dataset_names[data_selection]
     data_dir = Data_dirs[Dataset]

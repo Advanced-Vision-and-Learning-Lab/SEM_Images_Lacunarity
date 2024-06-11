@@ -54,21 +54,16 @@ class Base_Lacunarity(nn.Module):
         
     def forward(self,x):
         #Compute squared tensor
-        lacunarity_values = []
         x = ((self.normalize(x) + 1)/2)* 255
         squared_x_tensor = x ** 2
 
         #Get number of samples
         n_pts = np.prod(np.asarray(x.shape[-2:]))
-        if (self.kernel == None):
-            n_pts = np.prod(np.asarray(x.shape[-2:]))
-
+        n_pts_square = np.multiply(n_pts, n_pts, dtype=object)
         #Compute numerator (n * sum of squared pixels) and denominator (squared sum of pixels)
-        L_numerator = ((n_pts)**2) * (self.gap_layer(squared_x_tensor))
+        L_numerator = ((n_pts_square)) * (self.gap_layer(squared_x_tensor))
         L_denominator = (n_pts * self.gap_layer(x))**2
 
         #Lacunarity is L_numerator / L_denominator - 1
         L_r = (L_numerator / (L_denominator + self.eps)) - 1
-        lacunarity_values.append(L_r)
-        result = torch.cat(lacunarity_values, dim=1)
-        return result
+        return L_r

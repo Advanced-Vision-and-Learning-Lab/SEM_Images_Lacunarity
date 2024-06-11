@@ -15,6 +15,9 @@ import torch
 from Datasets.Pytorch_Datasets import *
 from Datasets.Get_transform import *
 from barbar import Bar
+from sklearn.model_selection import StratifiedKFold, train_test_split
+import numpy as np
+from torch.utils.data import DataLoader, Subset
 
 def Compute_Mean_STD(trainloader):
     print('Computing Mean/STD')
@@ -39,6 +42,12 @@ def Compute_Mean_STD(trainloader):
     
     return mean, std
 
+def get_train_test_split(full_dataset, labels, test_size=0.2, random_state=42):
+    train_idx, test_idx = train_test_split(np.arange(len(labels)), test_size=test_size, stratify=labels, random_state=random_state)
+    train_dataset = Subset(full_dataset, train_idx)
+    test_dataset = Subset(full_dataset, test_idx)
+    return train_dataset, test_dataset
+
 
 def Prepare_DataLoaders(Network_parameters, split):
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -49,57 +58,29 @@ def Prepare_DataLoaders(Network_parameters, split):
     data_transforms = get_transform(Network_parameters, input_size=224)
 
 
-    if Dataset == "LeavesTex":
-        train_dataset = LeavesTex1200(data_dir,transform=data_transforms["train"])
-        val_dataset = LeavesTex1200(data_dir,transform=data_transforms["test"])
-        test_dataset = LeavesTex1200(data_dir,transform=data_transforms["test"])
-    
-         #Create train/val/test loader
-        split = DataSplit(train_dataset,val_dataset,test_dataset, shuffle=False,random_seed=split)
-        train_loader, val_loader , test_loader = split.get_split(batch_size=Network_parameters['batch_size']['train'], 
-                                                                num_workers=Network_parameters['num_workers'],
-                                                                show_sample=False,
-                                                                val_batch_size=Network_parameters['batch_size']['val'],
-                                                                test_batch_size=Network_parameters['batch_size']['test'])
-        dataloaders_dict = {'train': train_loader,'val': val_loader,'test': test_loader}
+    if Dataset == "LungCells":
+        full_dataset = LungCells(data_dir, transform=None)
+        labels = [full_dataset[i][1] for i in range(len(full_dataset))]
 
+        skf = StratifiedKFold(n_splits=5, shuffle=True)
 
+        for split, (train_index, val_index) in enumerate(skf.split(np.zeros(len(labels)), labels)):
+            train_subset = Subset(full_dataset, train_index)
+            test_subset = Subset(full_dataset, val_index)
+            
+            # Apply transforms to train and validation subsets
+            train_subset.dataset.transform = data_transforms["train"]
+            test_subset.dataset.transform = data_transforms["test"]
 
-    
-    elif Dataset == "PlantVillage":
-        loading = PlantVillage(root = data_dir)
-        loader = loading.images
-
-        #Split data
-        loader.split(train = 0.7, val = 0.1, test = 0.2)
-        train_dataset = loader.train_data
-        train_dataset.as_torch_dataset()
-        train_dataset.transform = data_transforms['train']
-
-        test_dataset = loader.test_data
-        test_dataset.as_torch_dataset()
-        test_dataset.transform = data_transforms['test']
-
-        val_dataset = loader.val_data
-        val_dataset.as_torch_dataset()
-        val_dataset.transform = data_transforms['test']
-
-
-
-    elif Dataset == "DeepWeeds":
-        train_dataset = DeepWeeds(data_dir,transform=data_transforms["train"])
-        val_dataset = DeepWeeds(data_dir,transform=data_transforms["test"])
-        test_dataset = DeepWeeds(data_dir,transform=data_transforms["test"])
-    
-         #Create train/val/test loader based on mean and std
-        split = DataSplit(train_dataset,val_dataset,test_dataset, shuffle=False,random_seed=split)
-        train_loader, val_loader , test_loader = split.get_split(batch_size=Network_parameters['batch_size']['train'], 
-                                                                num_workers=Network_parameters['num_workers'],
-                                                                show_sample=False,
-                                                                val_batch_size=Network_parameters['batch_size']['val'],
-                                                                test_batch_size=Network_parameters['batch_size']['test'])
-        dataloaders_dict = {'train': train_loader,'val': val_loader,'test': test_loader}
-
+            image_datasets = {'train': train_subset, 'val': test_subset, 'test': test_subset}
+            dataloaders_dict = {x: torch.utils.data.DataLoader(image_datasets[x],
+                                                        batch_size=Network_parameters['batch_size'][x],
+                                                        num_workers=Network_parameters['num_workers'],
+                                                        pin_memory=Network_parameters['pin_memory'],
+                                                        shuffle=False,
+                                                        )
+                                                        for x in ['train', 'val','test']}
+                                                        
 
     else:
         raise RuntimeError('{} Dataset not implemented'.format(Dataset)) 
@@ -107,7 +88,7 @@ def Prepare_DataLoaders(Network_parameters, split):
 
 
 
-    if Dataset=='LeavesTex' or Dataset=='DeepWeeds':
+    if Dataset=='LungCells':
             pass
     
     else:

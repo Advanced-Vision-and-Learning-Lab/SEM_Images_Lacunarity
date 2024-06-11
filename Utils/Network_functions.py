@@ -19,7 +19,7 @@ from Utils.pytorchtools import EarlyStopping
 import pdb
 import os
 import torch.nn.functional as F
-from Utils.Timm_Models import backbone_model
+from Utils.Timm_Models import backbone_model, simple_model
 from Utils.Compute_sizes import get_feat_size
 
 
@@ -61,7 +61,6 @@ def train_model(model, dataloaders, criterion, optimizer, device, patience,
                     inputs = inputs.to(device)
                     inputs.requires_grad = True
                     labels = labels.to(device)
-  
                     # zero the parameter gradients
                     optimizer.zero_grad()
                   
@@ -231,13 +230,29 @@ def initialize_model(model_name, num_classes, dataloaders, Params, aggFunc="glob
     
     model_ft = None
     input_size = 0
-  
-    #Select backbone architecture
+    dataset = Params["Dataset"]
+    channels = Params["channels"][dataset]
+    model_name = Params['Model_name']
+    poolingLayer = Params["pooling_layer"]
     
-    model_ft = backbone_model(num_classes=num_classes, Params=Params, agg_func=aggFunc)
-    num_ftrs = get_feat_size(Params, dataloaders=dataloaders)
-    model_ft.fc = nn.Linear(num_ftrs, num_classes)
-    input_size = 224
+    if model_name == "simple_model":
+        model_ft = simple_model(num_classes=num_classes, Params=Params)
+        if poolingLayer == "DBC_Lacunarity":
+            num_ftrs = 676
+        elif poolingLayer == "L2":
+            num_ftrs = 16
+        else:
+            num_ftrs = 1
+        model_ft.fc = nn.Linear(num_ftrs, num_classes)
+        input_size = 224
+  
+    else:
+        #Select backbone architecture
+        model_ft = backbone_model(num_classes=num_classes, Params=Params, agg_func=aggFunc)
+        model_ft.model_dense.stem[0] = nn.Conv2d(channels, out_channels=96, kernel_size=(4,4), stride=(4,4))
+        num_ftrs = get_feat_size(Params, dataloaders=dataloaders)
+        model_ft.fc = nn.Linear(num_ftrs, num_classes)
+        input_size = 224
 
 
     # else:

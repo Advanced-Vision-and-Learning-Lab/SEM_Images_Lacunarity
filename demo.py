@@ -123,12 +123,12 @@ def parse_args():
                    help='Input scales')
    parser.add_argument('--num_levels', type=int, default=2,
                        help='Input number of levels')
-   parser.add_argument('--pooling_layer', type=int, default=5,
+   parser.add_argument('--pooling_layer', type=int, default=6,
                        help='pooling layer selection: 1:max, 2:avg, 3:L2, 4:fractal, 5:Base_Lacunarity, 6:MS_Lacunarity, 7:DBC_Lacunarity')
    parser.add_argument('--agg_func', type=int, default=1,
                        help='agg func: 1:global, 2:local')
-   parser.add_argument('--data_selection', type=int, default=1,
-                       help='Dataset selection: 1:LeavesTex1200, 2:PlantVillage, 3:DeepWeeds')
+   parser.add_argument('--data_selection', type=int, default=4,
+                       help='Dataset selection: 1:LungCells')
    parser.add_argument('--feature_extraction', default=True, action=argparse.BooleanOptionalAction,
                        help='Flag for feature extraction. False, train whole model. True, only update \
                         fully connected/encoder parameters (default: True)')
@@ -138,19 +138,19 @@ def parse_args():
                        help='enables xai interpretability')
    parser.add_argument('--earlystoppping', type=int, default=10,
                        help='early stopping for training')
-   parser.add_argument('--train_batch_size', type=int, default=2,
+   parser.add_argument('--train_batch_size', type=int, default=16,
                        help='input batch size for training (default: 128)')
-   parser.add_argument('--val_batch_size', type=int, default=128,
+   parser.add_argument('--val_batch_size', type=int, default=32,
                        help='input batch size for validation (default: 512)')
-   parser.add_argument('--test_batch_size', type=int, default=128,
+   parser.add_argument('--test_batch_size', type=int, default=32,
                        help='input batch size for testing (default: 256)')
-   parser.add_argument('--num_epochs', type=int, default=1,
+   parser.add_argument('--num_epochs', type=int, default=20,
                        help='Number of epochs to train each model for (default: 50)')
    parser.add_argument('--resize_size', type=int, default=256,
                        help='Resize the image before center crop. (default: 256)')
    parser.add_argument('--lr', type=float, default=0.01,
                        help='learning rate (default: 0.01)')
-   parser.add_argument('--model', type=str, default='convnext_tiny',
+   parser.add_argument('--model', type=str, default='simple_model',
                        help='backbone architecture to use (default: 0.01)')
    parser.add_argument('--use-cuda', action='store_true', default=True,
                        help='enables CUDA training')

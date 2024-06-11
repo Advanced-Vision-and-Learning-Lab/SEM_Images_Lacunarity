@@ -44,3 +44,20 @@ class backbone_model(nn.Module):
             for param in self.model_dense.parameters():
                 param.requires_grad = False
 
+
+
+class simple_model(nn.Module):
+    def __init__(self, num_classes, Params):
+
+        super(simple_model, self).__init__()
+        model_name = Params['Model_name']       
+        self.avgpool = get_pooling(model_name, Params)        
+        self.fc = nn.Linear(1, num_classes)
+
+    def forward(self,x):
+        features = self.avgpool(x)
+        out = F.relu(features, inplace=True)
+        out = torch.flatten(out, 1)
+        out = self.fc(out)
+        return out
+    

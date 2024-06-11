@@ -9,7 +9,8 @@ import kornia.geometry.transform as T
 global feature_maps
 feature_maps =  {"resnet18_lacunarity": 512,
                 "densenet161_lacunarity": 2208,
-                "convnext_lacunarity": 768}
+                "convnext_lacunarity": 768,
+                "simple_model": 1}
 
 
 class MS_Lacunarity(nn.Module):

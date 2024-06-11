@@ -22,7 +22,7 @@ import pdb
 
 class DataSplit:
 
-    def __init__(self, train_dataset,val_dataset,test_dataset, test_train_split=0.8, val_train_split=0.1, 
+    def __init__(self, train_dataset=None, val_dataset=None, test_dataset=None, test_train_split=0.8, val_train_split=0.1, 
                  random_seed=0,shuffle=False,stratify=True):
         
         #self.dataset = dataset
