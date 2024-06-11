@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Lacunarity Pooling Layers for Plant Image Classification using Texture Analysis:
 **Lacunarity Pooling Layers for Plant Image Classification using Texture Analysis**
 
