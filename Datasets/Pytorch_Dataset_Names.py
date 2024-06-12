@@ -15,7 +15,9 @@ import pdb
 
 def Get_Class_Names(Dataset,data_dir):
 
-    if Dataset == 'LungCells':
+    if Dataset == 'LungCells_DC':
+        dataset = LungCells(data_dir)
+    elif Dataset == 'LungCells_ME':
         dataset = LungCells(data_dir)
     else:
         raise RuntimeError('{} Dataset not implemented'.format(Dataset)) 
