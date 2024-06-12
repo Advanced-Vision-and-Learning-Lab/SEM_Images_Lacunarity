@@ -52,7 +52,7 @@ def main(Params):
 
        # Create training and validation dataloaders
        print("Initializing Datasets and Dataloaders...")
-       dataloaders_dict = Prepare_DataLoaders(Params, split)        
+       dataloaders_dict, test_dataset = Prepare_DataLoaders(Params, split)        
 
 
        # Initialize the histogram model for this run
@@ -87,7 +87,15 @@ def main(Params):
        train_dict = train_model(model_ft, dataloaders_dict, criterion, optimizer_ft, device, patience=Params['earlystoppping'],
                                  num_epochs=Params['num_epochs'],
                                  scheduler=scheduler)
-       test_dict = test_model(dataloaders_dict['test'], model_ft, criterion,
+       
+       test_dataloaders_dict = torch.utils.data.DataLoader(test_dataset,
+                                                        batch_size=Params['batch_size']['test'],
+                                                        num_workers=Params['num_workers'],
+                                                        pin_memory=Params['pin_memory'],
+                                                        shuffle=False,
+                                                        )
+       
+       test_dict = test_model(test_dataloaders_dict, model_ft, criterion,
                                device, model_weights = train_dict['best_model_wts'])
 
 

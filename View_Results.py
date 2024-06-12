@@ -95,7 +95,7 @@ def main(Params):
         # Remove pickle files
         del train_pkl_file, test_pkl_file
 
-        dataloaders_dict = Prepare_DataLoaders(Params, split)
+        dataloaders_dict, test_dataset = Prepare_DataLoaders(Params, split)
     
        # Initialize the histogram model for this run
         model, input_size = initialize_model(model_name, num_classes, dataloaders_dict, Params,
@@ -127,7 +127,7 @@ def main(Params):
         if (Params['TSNE_visual']):
             print("Initializing Datasets and Dataloaders...")
     
-            dataloaders_dict = Prepare_DataLoaders(params, split)
+            dataloaders_dict, test_dataset = Prepare_DataLoaders(params, split)
             print('Creating TSNE Visual...')
             
             #Remove fully connected layer

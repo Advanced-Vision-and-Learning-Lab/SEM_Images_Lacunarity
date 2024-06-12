@@ -237,9 +237,7 @@ def initialize_model(model_name, num_classes, dataloaders, Params, aggFunc="glob
     
     if model_name == "simple_model":
         model_ft = simple_model(num_classes=num_classes, Params=Params)
-        if poolingLayer == "DBC_Lacunarity":
-            num_ftrs = 676
-        elif poolingLayer == "L2":
+        if poolingLayer == "L2":
             num_ftrs = 16
         else:
             num_ftrs = 1

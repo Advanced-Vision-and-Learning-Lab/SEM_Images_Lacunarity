@@ -15,7 +15,6 @@ class DBC_Lacunarity(nn.Module):
         self.max_pool = nn.MaxPool2d(kernel_size=self.window_size, stride=1)
         
     def forward(self, image):
-        L_r_all = []
         image = ((self.normalize(image) + 1)/2)* 255
 
         # Perform operations independently for each window in the current channel
@@ -24,8 +23,6 @@ class DBC_Lacunarity(nn.Module):
 
         nr = torch.ceil(max_pool_output / (self.r + self.eps)) - torch.ceil(min_pool_output / (self.r + self.eps)) - 1
         Mr = torch.sum(nr)
-        Q_mr = nr / (self.window_size - self.r + 1)
+        Q_mr = nr / ((self.window_size[0] - self.r + 1) * (self.window_size[1] - self.r + 1))
         L_r = (Mr**2) * Q_mr / (Mr * Q_mr + self.eps)**2
-        L_r_all.append(L_r)
-        channel_L_r = torch.cat(L_r_all, dim=1)
-        return channel_L_r
+        return L_r

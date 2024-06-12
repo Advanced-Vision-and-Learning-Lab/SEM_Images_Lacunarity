@@ -59,28 +59,29 @@ def Prepare_DataLoaders(Network_parameters, split):
 
 
     if Dataset == "LungCells_DC" or Dataset == 'LungCells_ME':
-        full_dataset = LungCells(data_dir, transform=None)
-        labels = [full_dataset[i][1] for i in range(len(full_dataset))]
+        train_dataset = LungCells(data_dir, transform=data_transforms["train"], train=True)
+        test_dataset = LungCells(data_dir, transform=data_transforms["test"], train=False)
+        labels = [train_dataset[i][1] for i in range(len(train_dataset))]
 
         skf = StratifiedKFold(n_splits=5, shuffle=True)
 
         for split, (train_index, val_index) in enumerate(skf.split(np.zeros(len(labels)), labels)):
-            train_subset = Subset(full_dataset, train_index)
-            test_subset = Subset(full_dataset, val_index)
+            train_subset = Subset(train_dataset, train_index)
+            val_subset = Subset(train_dataset, val_index)
             
             # Apply transforms to train and validation subsets
             train_subset.dataset.transform = data_transforms["train"]
-            test_subset.dataset.transform = data_transforms["test"]
+            val_subset.dataset.transform = data_transforms["test"]
 
-            image_datasets = {'train': train_subset, 'val': test_subset, 'test': test_subset}
+            image_datasets = {'train': train_subset, 'val': val_subset}
             dataloaders_dict = {x: torch.utils.data.DataLoader(image_datasets[x],
                                                         batch_size=Network_parameters['batch_size'][x],
                                                         num_workers=Network_parameters['num_workers'],
                                                         pin_memory=Network_parameters['pin_memory'],
                                                         shuffle=False,
                                                         )
-                                                        for x in ['train', 'val','test']}
-                                                        
+                                                        for x in ['train', 'val']}           
+
 
     else:
         raise RuntimeError('{} Dataset not implemented'.format(Dataset)) 
@@ -89,8 +90,7 @@ def Prepare_DataLoaders(Network_parameters, split):
 
 
     if Dataset=='LungCells_DC' or Dataset == 'LungCells_ME':
-            pass
-                                                     
+            pass                                                     
 
 
-    return dataloaders_dict
+    return dataloaders_dict, test_dataset

@@ -58,7 +58,7 @@ def get_pooling(model_name, Params):
         elif poolingLayer == "MS_Lacunarity":
             pool_layer = MS_Lacunarity(model_name=model_name, num_levels=num_levels)
         elif poolingLayer == "DBC_Lacunarity":
-            pool_layer = DBC_Lacunarity(model_name=model_name, window_size = 7)
+            pool_layer = DBC_Lacunarity(model_name=model_name, window_size = 224)
         elif poolingLayer == "fractal":
             pool_layer = fractal_pooling(Params=Params)
 
