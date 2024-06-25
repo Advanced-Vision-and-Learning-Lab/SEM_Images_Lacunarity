@@ -83,13 +83,15 @@ class LungCells(Dataset):
 
     def __len__(self):
         return len(self.files)
+    
+
 
     def __getitem__(self, idx):       
         datafiles = self.files[idx]
         image = datafiles["img"]
         #Convert to numpy array and normalize to be [0,255]
         image = np.array(image)
-        image = (image/image.max()) * 255        
+        image = (image/image.max()) * 255  
         #Remove label
         image = (image[0:self.label_cutoff,:])
         target = datafiles["label"]

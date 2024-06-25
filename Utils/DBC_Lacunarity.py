@@ -20,9 +20,8 @@ class DBC_Lacunarity(nn.Module):
         # Perform operations independently for each window in the current channel
         max_pool_output = self.max_pool(image)
         min_pool_output = -self.max_pool(-image)
-
         nr = torch.ceil(max_pool_output / (self.r + self.eps)) - torch.ceil(min_pool_output / (self.r + self.eps)) - 1
         Mr = torch.sum(nr)
-        Q_mr = nr / ((self.window_size[0] - self.r + 1) * (self.window_size[1] - self.r + 1))
+        Q_mr = nr / (self.window_size - self.r + 1)
         L_r = (Mr**2) * Q_mr / (Mr * Q_mr + self.eps)**2
         return L_r

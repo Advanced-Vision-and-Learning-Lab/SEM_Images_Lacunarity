@@ -60,27 +60,27 @@ def Prepare_DataLoaders(Network_parameters, split):
 
     if Dataset == "LungCells_DC" or Dataset == 'LungCells_ME':
         train_dataset = LungCells(data_dir, transform=data_transforms["train"], train=True)
-        test_dataset = LungCells(data_dir, transform=data_transforms["test"], train=False)
-        labels = [train_dataset[i][1] for i in range(len(train_dataset))]
+        val_dataset = LungCells(data_dir, transform=data_transforms["test"], train=False)
+
+        # Combine train and validation datasets for Stratified KFold split
+        combined_dataset = torch.utils.data.ConcatDataset([train_dataset, val_dataset])
+        labels = np.array(combined_dataset.targets)
 
         skf = StratifiedKFold(n_splits=5, shuffle=True)
 
-        for split, (train_index, val_index) in enumerate(skf.split(np.zeros(len(labels)), labels)):
-            train_subset = Subset(train_dataset, train_index)
-            val_subset = Subset(train_dataset, val_index)
-            
-            # Apply transforms to train and validation subsets
-            train_subset.dataset.transform = data_transforms["train"]
-            val_subset.dataset.transform = data_transforms["test"]
+        for fold, (train_index, val_index) in enumerate(skf.split(np.zeros(len(labels)), labels)):
+            # Create subsets for this fold
+            train_subset = Subset(combined_dataset, train_index)
+            val_subset = Subset(combined_dataset, val_index)
 
-            image_datasets = {'train': train_subset, 'val': val_subset}
+            image_datasets = {'train': train_subset, 'val': val_subset, 'test': val_subset}
             dataloaders_dict = {x: torch.utils.data.DataLoader(image_datasets[x],
                                                         batch_size=Network_parameters['batch_size'][x],
                                                         num_workers=Network_parameters['num_workers'],
                                                         pin_memory=Network_parameters['pin_memory'],
                                                         shuffle=False,
                                                         )
-                                                        for x in ['train', 'val']}           
+                                                        for x in ['train', 'val', 'test']}           
 
 
     else:
@@ -93,4 +93,4 @@ def Prepare_DataLoaders(Network_parameters, split):
             pass                                                     
 
 
-    return dataloaders_dict, test_dataset
+    return dataloaders_dict

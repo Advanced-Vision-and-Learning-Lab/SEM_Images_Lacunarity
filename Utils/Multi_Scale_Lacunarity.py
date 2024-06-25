@@ -14,7 +14,7 @@ feature_maps =  {"resnet18_lacunarity": 512,
 
 
 class MS_Lacunarity(nn.Module):
-    def __init__(self, dim=2, eps = 10E-6, model_name='resnet18_lacunarity', num_levels = None, kernel = None, stride = None, padding = None):
+    def __init__(self, dim=2, eps = 10E-6, model_name='simple_model', num_levels = None, kernel = None, stride = None, padding = None):
 
 
         # inherit nn.module

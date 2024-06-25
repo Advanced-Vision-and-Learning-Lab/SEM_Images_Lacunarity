@@ -3,9 +3,9 @@ import shutil
 import random
 
 # Paths to the original dataset and the new train/test directories
-original_dataset_path = 'Datasets/Lung Cells SEM Images_group1_DC_NEW'
-train_dataset_path = 'Datasets/Lung Cells SEM Images_group1_DC_NEW/train'
-test_dataset_path = 'Datasets/Lung Cells SEM Images_group1_DC_NEW/test'
+original_dataset_path = 'Datasets/Lung Cells SEM Images_group1_DC_NEW_1200'
+train_dataset_path = 'Datasets/Lung_Cells_DC_Split_1200/train'
+test_dataset_path = 'Datasets/Lung_Cells_DC_Split_1200/val'
 
 # Split ratio
 train_ratio = 0.8  # 80% for training, 20% for testing
