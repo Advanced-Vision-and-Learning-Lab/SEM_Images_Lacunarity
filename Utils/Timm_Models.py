@@ -59,5 +59,5 @@ class simple_model(nn.Module):
         out = F.relu(features, inplace=True)
         out = torch.flatten(out, 1)
         out = self.fc(out)
-        return out
+        return out, features
     

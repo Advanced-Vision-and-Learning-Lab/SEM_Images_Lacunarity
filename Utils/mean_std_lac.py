@@ -8,10 +8,10 @@ from scipy.stats import ttest_ind, mannwhitneyu
 from scipy.stats import shapiro
 
 # Path to the CSV file where the results are saved
-csv_file_path = 'C:/Users/aksha/Peeples_Lab/SEM_Images_Lacunarity/Datasets/DC_changed_lacunarity_results.csv'
+csv_file_path = 'C:/Users/aksha/Peeples_Lab/SEM_Images_Lacunarity/Datasets/DC_changed_lacunarity_results_all.csv'
 
 # Path to the CSV file where the class-wise statistics will be saved
-class_stats_csv_file_path = 'C:/Users/aksha/Peeples_Lab/SEM_Images_Lacunarity/Datasets/DC_changed_lacunarity_class_stats.csv'
+class_stats_csv_file_path = 'C:/Users/aksha/Peeples_Lab/SEM_Images_Lacunarity/Datasets/DC_changed_lacunarity_class__all_stats.csv'
 
 # Define classes
 classes = {
@@ -33,7 +33,7 @@ def extract_numerical_value(tensor_str):
 with open(csv_file_path, mode='r') as file:
     reader = csv.DictReader(file)
     for row in reader:
-        image_path = row["Image Path"]
+        image_path = row["Class"]
         base_lacunarity_str = row["Base_Lacunarity"]
         dbc_lacunarity_str = row["DBC_Lacunarity"]
         

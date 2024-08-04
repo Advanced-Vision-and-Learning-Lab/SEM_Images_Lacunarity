@@ -16,7 +16,6 @@ class DBC_Lacunarity(nn.Module):
         
     def forward(self, image):
         image = ((self.normalize(image) + 1)/2)* 255
-
         # Perform operations independently for each window in the current channel
         max_pool_output = self.max_pool(image)
         min_pool_output = -self.max_pool(-image)

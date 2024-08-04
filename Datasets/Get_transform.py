@@ -23,43 +23,18 @@ def get_transform(Network_parameters, input_size=224):
     data_dir = Network_parameters['data_dir']
     
     if Dataset == "LungCells_DC" or Dataset == 'LungCells_ME':
-                mean = [0.379]
-                std = [0.224]
+        data_transforms = {
+        'train': transforms.Compose([
+            transforms.Resize((input_size, input_size)),
+            transforms.ToTensor(),
+        ]),
+        'val': transforms.Compose([
+            transforms.Resize((input_size, input_size)),
+            transforms.ToTensor(),
+        ]),
+}
     
     else:
         raise RuntimeError('{} Dataset not implemented'.format(Dataset))
-    
-    input_size = 32
-    
-    data_transforms = {
-            'train': transforms.Compose([
-                transforms.Resize(Network_parameters['resize_size']),
-                transforms.RandomResizedCrop(input_size,scale=(.8,1.0)),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=mean, std=std)
-            ]),
-            'test': transforms.Compose([
-                transforms.Resize(Network_parameters['resize_size']),
-                transforms.CenterCrop(input_size),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=mean, std=std)
-            ]),
-        }
-
-    # data_transforms = {
-    #         'train': transforms.Compose([
-    #             transforms.Resize(Network_parameters['resize_size']),
-    #             transforms.RandomResizedCrop(input_size,scale=(.8,1.0)),
-    #             transforms.RandomHorizontalFlip(),
-    #             transforms.ToTensor(),
-    #             transforms.Normalize(mean=mean, std=std)
-    #         ]),
-    #         'test': transforms.Compose([
-    #             transforms.Resize(Network_parameters['resize_size']),
-    #             transforms.CenterCrop(input_size),
-    #             transforms.ToTensor(),
-    #             transforms.Normalize(mean=mean, std=std)
-    #         ]),
-    #     }
     
     return data_transforms

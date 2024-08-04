@@ -18,6 +18,14 @@ from barbar import Bar
 from sklearn.model_selection import StratifiedKFold, train_test_split
 import numpy as np
 from torch.utils.data import DataLoader, Subset
+from torch.utils.data import ConcatDataset, Subset
+
+
+class CustomConcatDataset(ConcatDataset):
+    def __init__(self, datasets):
+        super(CustomConcatDataset, self).__init__(datasets)
+        self.targets = np.concatenate([dataset.targets for dataset in datasets])
+
 
 def Compute_Mean_STD(trainloader):
     print('Computing Mean/STD')
@@ -61,10 +69,12 @@ def Prepare_DataLoaders(Network_parameters, split):
     if Dataset == "LungCells_DC" or Dataset == 'LungCells_ME':
         train_dataset = LungCells(data_dir, transform=data_transforms["train"], train=True)
         val_dataset = LungCells(data_dir, transform=data_transforms["test"], train=False)
+        train_loader = DataLoader(train_dataset, batch_size=16, shuffle=False, num_workers=0, pin_memory=True)
+
 
         # Combine train and validation datasets for Stratified KFold split
-        combined_dataset = torch.utils.data.ConcatDataset([train_dataset, val_dataset])
-        labels = np.array(combined_dataset.targets)
+        combined_dataset = CustomConcatDataset([train_dataset, val_dataset])
+        labels = combined_dataset.targets
 
         skf = StratifiedKFold(n_splits=5, shuffle=True)
 
@@ -80,7 +90,8 @@ def Prepare_DataLoaders(Network_parameters, split):
                                                         pin_memory=Network_parameters['pin_memory'],
                                                         shuffle=False,
                                                         )
-                                                        for x in ['train', 'val', 'test']}           
+                                                        for x in ['train', 'val', 'test']}   
+      
 
 
     else:

@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-#This is for getting all images in a directory (including subdirs)
+# This is for getting all images in a directory (including subdirs)
 def getListOfFiles(dirName):
     # create a list of all files in a root dir
     listOfFile = os.listdir(dirName)
@@ -33,23 +33,22 @@ def getListOfFiles(dirName):
             allFiles.append(fullPath)
                 
     return allFiles
+    
 
-
-
+    
 class LungCells(Dataset):
-    def __init__(self, root, train = True, transform=None, label_cutoff=1024, load_all=True):
+    def __init__(self, root, train=True, transform=None, label_cutoff=1024, load_all=True):
         self.load_all = load_all
         self.transform = transform
         self.label_cutoff = label_cutoff
         self.data = []
         self.targets = []
         self.files = []
-        self.classes =  ['Lung Cells Exposed to Crystalline Silica (CS)', 'Lung Cells Exposed to Isocyanate (IPDI)', 
-                        'Lung Cells Exposed to Nickel Oxide (NiO)', 'Lung Cells Exposed to Silver Nanoparticles (Ag-NP)',
-                        'Lung Cells Untreated']
+        self.classes = ['Silver Nanoparticles (Ag-NP)', 'Crystalline Silica (CS)', 'Isocyanate (IPDI)', 
+                        'Nickel Oxide (NiO)', 'Untreated']
         if train:
             if self.load_all:
-                self._image_files = getListOfFiles(os.path.join(root, "train"))
+                self._image_files = getListOfFiles(os.path.join(root))
                 for img_name in self._image_files:
                     self.data.append(Image.open(img_name))
                     self.targets.append((ntpath.basename(img_name).split('_')[0]))
@@ -65,7 +64,7 @@ class LungCells(Dataset):
                 
         else:
             if self.load_all:
-                self._image_files = getListOfFiles(os.path.join(root, "test"))
+                self._image_files = getListOfFiles(os.path.join(root))
                 for img_name in self._image_files:
                     self.data.append(Image.open(img_name))
                     self.targets.append((ntpath.basename(img_name).split('_')[0]))
@@ -79,21 +78,15 @@ class LungCells(Dataset):
                         "label": item[1]
                         })
 
-            
-
     def __len__(self):
         return len(self.files)
     
-
-
     def __getitem__(self, idx):       
         datafiles = self.files[idx]
         image = datafiles["img"]
-        #Convert to numpy array and normalize to be [0,255]
+        # Convert to numpy array and normalize to be [0, 255]
         image = np.array(image)
-        image = (image/image.max()) * 255  
-        #Remove label
-        image = (image[0:self.label_cutoff,:])
+        image = (image/image.max()) * 255
         target = datafiles["label"]
 
         if self.transform:
@@ -102,13 +95,3 @@ class LungCells(Dataset):
             image = to_pil(image)
             image = self.transform(image)
         return image, target
-    
-    
-    def display_image(self, idx):
-        image, target = self[idx]
-        if isinstance(image, torch.Tensor):
-            image = image.permute(1, 2, 0).numpy()  # Rearrange tensor to image format
-        plt.imshow(image, cmap='gray')
-        plt.title(f'Label: {self.classes[target]}')
-        plt.axis('off')
-        plt.show()

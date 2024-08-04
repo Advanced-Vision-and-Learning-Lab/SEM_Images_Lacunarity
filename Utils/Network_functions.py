@@ -253,8 +253,6 @@ def initialize_model(model_name, num_classes, dataloaders, Params, aggFunc="glob
         input_size = 224
 
 
-    # else:
-    #     raise RuntimeError('{} not implemented'.format(model_name))
     
 
     return model_ft, input_size

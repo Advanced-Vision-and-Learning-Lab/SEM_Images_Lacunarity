@@ -52,7 +52,7 @@ def main(Params):
 
        # Create training and validation dataloaders
        print("Initializing Datasets and Dataloaders...")
-       dataloaders_dict, test_dataset = Prepare_DataLoaders(Params, split)        
+       dataloaders_dict = Prepare_DataLoaders(Params, split)        
 
 
        # Initialize the histogram model for this run
@@ -68,12 +68,8 @@ def main(Params):
        model_ft = model_ft.to(device)
 
       # Print number of trainable parameters
-       num_params = sum(p.numel() for p in model_ft.parameters() if p.requires_grad)
-       num_params_classifier = sum(p.numel() for p in model_ft.fc.parameters() if p.requires_grad)
-      
+       num_params = sum(p.numel() for p in model_ft.parameters() if p.requires_grad)      
        print("Number of parameters: %d" % (num_params))
-       print("Number of parameters_pooling: %d" % (num_params_classifier))
-
      
        optimizer_ft = optim.Adam(model_ft.parameters(), lr=Params['lr'])
   
@@ -88,16 +84,8 @@ def main(Params):
                                  num_epochs=Params['num_epochs'],
                                  scheduler=scheduler)
        
-       test_dataloaders_dict = torch.utils.data.DataLoader(test_dataset,
-                                                        batch_size=Params['batch_size']['test'],
-                                                        num_workers=Params['num_workers'],
-                                                        pin_memory=Params['pin_memory'],
-                                                        shuffle=False,
-                                                        )
-       
-       test_dict = test_model(test_dataloaders_dict, model_ft, criterion,
+       test_dict = test_model(dataloaders_dict, model_ft, criterion,
                                device, model_weights = train_dict['best_model_wts'])
-
 
 
 
@@ -121,9 +109,9 @@ def parse_args():
                        help='Save results of experiments(default: True)')
    parser.add_argument('--folder', type=str, default='Saved_Models',
                        help='Location to save models')
-   parser.add_argument('--kernel', type=int, default=None,
+   parser.add_argument('--kernel', type=int, default=3,
                        help='Input kernel size')
-   parser.add_argument('--stride', type=int, default=None,
+   parser.add_argument('--stride', type=int, default=1,
                        help='Input stride size')
    parser.add_argument('--padding', type=int, default=0,
                        help='Input padding size')
@@ -131,11 +119,11 @@ def parse_args():
                    help='Input scales')
    parser.add_argument('--num_levels', type=int, default=2,
                        help='Input number of levels')
-   parser.add_argument('--pooling_layer', type=int, default=6,
+   parser.add_argument('--pooling_layer', type=int, default=5,
                        help='pooling layer selection: 1:max, 2:avg, 3:L2, 4:fractal, 5:Base_Lacunarity, 6:MS_Lacunarity, 7:DBC_Lacunarity')
-   parser.add_argument('--agg_func', type=int, default=1,
+   parser.add_argument('--agg_func', type=int, default=2,
                        help='agg func: 1:global, 2:local')
-   parser.add_argument('--data_selection', type=int, default=4,
+   parser.add_argument('--data_selection', type=int, default=1,
                        help='Dataset selection: 1:LungCells_DC, 2:LungCells_ME')
    parser.add_argument('--feature_extraction', default=True, action=argparse.BooleanOptionalAction,
                        help='Flag for feature extraction. False, train whole model. True, only update \
