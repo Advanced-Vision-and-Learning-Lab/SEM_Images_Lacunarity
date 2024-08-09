@@ -107,7 +107,7 @@ def Parameters(args):
         mode = 'Fine_Tuning'
     
     #Location of texture datasets
-    Data_dirs = {'LungCells_DC': 'Datasets/Lung_Cells_DC_Split_overlap',
+    Data_dirs = {'LungCells_DC': 'Datasets/Lung Cells SEM Images_group1_DC_NEW',
                  'LungCells_ME': 'Datasets/Lung_Cells_ME_Split_overlap'}
     
     #Backbone architecture

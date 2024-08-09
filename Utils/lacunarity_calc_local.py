@@ -61,6 +61,7 @@ class QCO_2d(nn.Module):
         
         cos_sim_min = x.min()  # 0.1
         cos_sim_max = x.max()  # 1.0
+
         #TRY to make q levels the same across the image
         q_levels = torch.linspace(cos_sim_min, cos_sim_max, self.level_num).to(x.device)
         # q_levels = tensor([0.1, 0.55, 1.0])  # Assuming self.level_num = 3
@@ -210,7 +211,7 @@ train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_worker
 val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
 
 # Initialize lacunarity models
-base_lacunarity = Base_Lacunarity(kernel=(21,21), stride=(1,1))
+base_lacunarity = Base_Lacunarity(kernel=(3,3), stride=(1,1))
 dbc_lacunarity = DBC_Lacunarity(window_size=3)
 
 
@@ -221,7 +222,7 @@ base_lacunarity.to(device)
 dbc_lacunarity.to(device)
 
 class_lacunarity = defaultdict(lambda: defaultdict(list))
-class_sta_sums = defaultdict(lambda: torch.zeros(8, 8).to(device))
+class_sta_sums = defaultdict(lambda: torch.zeros(5, 5).to(device))
 class_sta_counts = defaultdict(int)
 
 
@@ -369,7 +370,7 @@ def visualize_emd_matrix(emd_matrix, class_names):
 
 
 
-qco_2d = QCO_2d(scale=1, level_num=8).to(device)
+qco_2d = QCO_2d(scale=1, level_num=5).to(device)
 
 for loader in [train_loader, val_loader]:
     for images, labels in tqdm(loader, desc="Processing images"):

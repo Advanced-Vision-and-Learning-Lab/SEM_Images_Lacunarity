@@ -31,36 +31,18 @@ data_transforms = {
     'train': transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=0.379, std=0.224)
     ]),
     'val': transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=0.379, std=0.224)
     ]),
 }
 
-def Compute_Mean_STD(trainloader):
-    print('Computing Mean/STD')
-    nimages = 0
-    mean = 0.0
-    var = 0.0
-    for i_batch, batch_target in enumerate(Bar(trainloader)):
-        batch = batch_target[0]
-        batch = batch.view(batch.size(0), batch.size(1), -1)
-        nimages += batch.size(0)
-        mean += batch.mean(2).sum(0)
-        var += batch.var(2).sum(0)
-   
-    mean /= nimages
-    var /= nimages
-    std = torch.sqrt(var)
-    print()
-    
-    return mean, std
+
 
 # This is for getting all images in a directory (including subdirs)
 def getListOfFiles(dirName):
+    # create a list of all files in a root dir
     listOfFile = os.listdir(dirName)
     allFiles = list()
     for entry in listOfFile:
@@ -69,8 +51,11 @@ def getListOfFiles(dirName):
             allFiles = allFiles + getListOfFiles(fullPath)
         else:
             allFiles.append(fullPath)
+                
     return allFiles
 
+
+    
 class LungCells(Dataset):
     def __init__(self, root, train=True, transform=None, label_cutoff=1024, load_all=True):
         self.load_all = load_all
@@ -79,44 +64,49 @@ class LungCells(Dataset):
         self.data = []
         self.targets = []
         self.files = []
-        self.imagepaths = []
         self.classes = ['Silver Nanoparticles (Ag-NP)', 'Crystalline Silica (CS)', 'Isocyanate (IPDI)', 
                         'Nickel Oxide (NiO)', 'Untreated']
         if train:
             if self.load_all:
-                self._image_files = getListOfFiles(os.path.join(root, "train"))
+                self._image_files = getListOfFiles(os.path.join(root))
                 for img_name in self._image_files:
-                    self.imagepaths.append(ntpath.basename(img_name).split('_'))
                     self.data.append(Image.open(img_name))
                     self.targets.append((ntpath.basename(img_name).split('_')[0]))
-                    #1 = CS, 2 = IPDI, 3 = NiO, 0 = Ag-NP, 4 = Untreated
-
+                    
             label_encoder = preprocessing.LabelEncoder()
             self.targets = label_encoder.fit_transform(self.targets)
 
             for item in zip(self.data, self.targets):
-                self.files.append({"img": item[0], "label": item[1]})
+                self.files.append({
+                        "img": item[0],
+                        "label": item[1]
+                        })
+                
         else:
             if self.load_all:
-                self._image_files = getListOfFiles(os.path.join(root, "val"))
+                self._image_files = getListOfFiles(os.path.join(root))
                 for img_name in self._image_files:
                     self.data.append(Image.open(img_name))
                     self.targets.append((ntpath.basename(img_name).split('_')[0]))
-
+                    
             label_encoder = preprocessing.LabelEncoder()
             self.targets = label_encoder.fit_transform(self.targets)
 
             for item in zip(self.data, self.targets):
-                self.files.append({"img": item[0], "label": item[1]})
+                self.files.append({
+                        "img": item[0],
+                        "label": item[1]
+                        })
 
     def __len__(self):
-        return len(self.files)  
-
+        return len(self.files)
+    
     def __getitem__(self, idx):       
         datafiles = self.files[idx]
         image = datafiles["img"]
+        # Convert to numpy array and normalize to be [0, 255]
         image = np.array(image)
-        # image = (image / image.max()) * 255
+        image = (image/image.max()) * 255
         target = datafiles["label"]
 
         if self.transform:
@@ -124,12 +114,8 @@ class LungCells(Dataset):
             to_pil = T.ToPILImage()
             image = to_pil(image)
             image = self.transform(image)
-
         return image, target
 
-sum_pixels = 0
-sum_squared_pixels = 0
-num_pixels = 0
 
 # List to store the results
 results = []
@@ -140,34 +126,24 @@ val_dataset = LungCells(root=output_main_folder_path, train=False, transform=dat
 # Create dataloaders
 train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
 val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
-mean, std = Compute_Mean_STD(trainloader=train_loader)
-print(mean)
-print(std)
+
 
 # Initialize lacunarity models
 base_lacunarity = Base_Lacunarity(kernel=None)
-dbc_lacunarity = DBC_Lacunarity(window_size=224)
-multi_lacunarity = MS_Lacunarity(num_levels=3)
 
 # Move to GPU if available
 device = torch.device("cpu")
 base_lacunarity.to(device)
-dbc_lacunarity.to(device)
-multi_lacunarity.to(device)
 
 class_lacunarity = defaultdict(lambda: defaultdict(list))
 results = []
 
 def process_single_image(image, label, dataset):
     base_value = base_lacunarity(image).item()
-    dbc_value = dbc_lacunarity(image).item()
-    multi_value = multi_lacunarity(image).item()
 
     class_name = dataset.classes[label]
     class_lacunarity[class_name]['Base'].append(base_value)
-    class_lacunarity[class_name]['DBC'].append(dbc_value)
-    class_lacunarity[class_name]['Multi'].append(multi_value)
-    results.append([class_name, base_value, dbc_value, multi_value])
+    results.append([class_name, base_value])
 
 # Process train and validation data
 for loader in [train_loader, val_loader]:
@@ -177,7 +153,7 @@ for loader in [train_loader, val_loader]:
 # Save results to CSV
 with open(csv_file_path, mode='w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(["Class", "Base_Lacunarity", "DBC_Lacunarity", "Multi_Lacunarity"])
+    writer.writerow(["Class", "Base_Lacunarity"])
     writer.writerows(results)
 
 print("Lacunarity calculation complete and results saved to CSV file.")
@@ -218,6 +194,4 @@ def plot_histograms_with_curves(lacunarity_type):
 
 # Plot distributions for each lacunarity type
 plot_histograms_with_curves('Base')
-plot_histograms_with_curves('DBC')
-plot_histograms_with_curves('Multi')
 

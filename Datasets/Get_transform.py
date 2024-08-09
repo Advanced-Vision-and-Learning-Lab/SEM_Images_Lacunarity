@@ -24,14 +24,10 @@ def get_transform(Network_parameters, input_size=224):
     
     if Dataset == "LungCells_DC" or Dataset == 'LungCells_ME':
         data_transforms = {
-        'train': transforms.Compose([
+            transforms.Compose([
             transforms.Resize((input_size, input_size)),
             transforms.ToTensor(),
-        ]),
-        'val': transforms.Compose([
-            transforms.Resize((input_size, input_size)),
-            transforms.ToTensor(),
-        ]),
+        ])
 }
     
     else:

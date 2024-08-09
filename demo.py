@@ -25,81 +25,14 @@ def main(Params):
    # Name of dataset
    Dataset = Params['Dataset'] 
   
-   # Model(s) to be used
-   model_name = Params['Model_name']
-  
-   # Number of classes in dataset
-   num_classes = Params['num_classes'][Dataset]
-  
-   # Number of runs and/or splits for dataset
-   numRuns = Params['Splits'][Dataset]
-  
+   
    # Detect if we have a GPU available
    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
    print('Starting Experiments...')
-  
-   for split in range(0, numRuns):
-       #Set same random seed based on split and fairly compare each embedding approach
-       torch.manual_seed(split)
-       np.random.seed(split)
-       np.random.seed(split)
-       torch.cuda.manual_seed(split)
-       torch.cuda.manual_seed_all(split)
-       torch.manual_seed(split)
-
-
-       # Create training and validation dataloaders
-       print("Initializing Datasets and Dataloaders...")
-       dataloaders_dict = Prepare_DataLoaders(Params, split)        
-
-
-       # Initialize the histogram model for this run
-       model_ft, input_size = initialize_model(model_name, num_classes, dataloaders_dict, Params,
-                                               aggFunc = Params["agg_func"])
-
-
-       # Send the model to GPU if available, use multiple if available
-       if torch.cuda.device_count() > 1:
-           print("Using", torch.cuda.device_count(), "GPUs!")
-           model_ft = nn.DataParallel(model_ft)
-       
-       model_ft = model_ft.to(device)
-
-      # Print number of trainable parameters
-       num_params = sum(p.numel() for p in model_ft.parameters() if p.requires_grad)      
-       print("Number of parameters: %d" % (num_params))
-     
-       optimizer_ft = optim.Adam(model_ft.parameters(), lr=Params['lr'])
-  
-       #Loss function
-       criterion = nn.CrossEntropyLoss()
-   
-       scheduler = None
-
-
-       # Train and evaluate
-       train_dict = train_model(model_ft, dataloaders_dict, criterion, optimizer_ft, device, patience=Params['earlystoppping'],
-                                 num_epochs=Params['num_epochs'],
-                                 scheduler=scheduler)
-       
-       test_dict = test_model(dataloaders_dict, model_ft, criterion,
-                               device, model_weights = train_dict['best_model_wts'])
-
-
-
-       # Save results
-       if (Params['save_results']):
-           #Delete previous dataloaders and training/validation data without data augmentation
-           save_results(train_dict, test_dict, split, Params,
-                         num_params,model_ft)
-          
-           del train_dict, test_dict, model_ft
-           torch.cuda.empty_cache()
-
-
-       print('**********Run ' + str(split + 1) + model_name + ' Finished**********')
+   dataloaders_dict = Prepare_DataLoaders(Params, split)
+   print('**********Run ' + str(split + 1) + model_name + ' Finished**********')
      
 
 

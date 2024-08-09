@@ -7,8 +7,6 @@ import torchvision.transforms as T
 from sklearn import preprocessing
 import matplotlib.pyplot as plt
 from collections import defaultdict
-from scipy.stats import gaussian_kde
-import pdb
 import ntpath
 import torch
 from torch.utils.data import Dataset
@@ -19,9 +17,8 @@ import math
 import torch.nn.functional as F
 import seaborn as sns
 import pandas as pd
-from sklearn.manifold import TSNE
-from scipy import stats
-import cv2
+from scipy.special import kl_div
+from scipy.stats import wasserstein_distance  # For EMD calculation
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -138,26 +135,22 @@ class LungCells(Dataset):
             image = self.transform(image)
         return image, target
 
-results = []
-class_fractal_dims = defaultdict(list)
+def compute_histogram(data, bins):
+    """ Compute the histogram and normalize to get a probability distribution. """
+    hist, _ = np.histogram(data, bins=bins, range=(0, bins))
+    hist = hist.astype(float)
+    hist /= hist.sum()  # Normalize
+    return hist
 
-train_dataset = LungCells(root=output_main_folder_path, train=True, transform=data_transforms['train'])
-val_dataset = LungCells(root=output_main_folder_path, train=False, transform=data_transforms['val'])
+def calculate_emd(hist1, hist2):
+    """ Calculate EMD between two histograms. """
+    return wasserstein_distance(hist1, hist2)
 
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
-val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
-
-gdcb = GDCB(mfs_dim=25, nlv_bcd=6).to(device)
-
-def process_batch(images, labels, dataset):
-    global class_fractal_dims
+def process_batch(images, labels, dataset, histograms):
     images = images.to(device)
     
     fractal_dims = gdcb(images)
-
+    
     for i in range(len(labels)):
         class_name = dataset.classes[labels[i]]
         class_fractal_dims[class_name].append(fractal_dims[i].item())
@@ -166,69 +159,85 @@ def process_batch(images, labels, dataset):
             class_name, 
             fractal_dims[i].item(), 
         ])
+        
 
-def visualize_fractal_dimensions(class_fractal_dims):
-    plt.figure(figsize=(12, 6))
+        num_bins = 5  # Adjust based on the number of quantization levels
+        hist_quant = compute_histogram(fractal_dims[i].cpu().numpy(), bins=num_bins)
+        
+        if class_name not in histograms:
+            histograms[class_name] = hist_quant
+        else:
+            histograms[class_name] += hist_quant
+
+    return histograms
+
+def calculate_histogram_emds(histograms):
+    """ Calculate EMD between histograms of different classes. """
+    class_names = list(histograms.keys())
+    n_classes = len(class_names)
+    emd_matrix = np.zeros((n_classes, n_classes))
     
-    for class_name, dims in class_fractal_dims.items():
-        sns.kdeplot(dims, label=class_name)
+    for i, class1 in enumerate(class_names):
+        for j, class2 in enumerate(class_names):
+            if i != j:
+                hist1 = histograms[class1]
+                hist2 = histograms[class2]
+                emd_matrix[i, j] = calculate_emd(hist1, hist2)
     
-    plt.title('Distribution of Fractal Dimensions by Class')
+    return emd_matrix, class_names
+
+def visualize_emd_matrix(emd_matrix, class_names):
+    """ Visualize EMD matrix as a heatmap. """
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(emd_matrix, annot=True, fmt=".4f", cmap="YlGnBu", 
+                xticklabels=class_names, yticklabels=class_names)
+    plt.title("EMD between Classes")
+    plt.tight_layout()
+    plt.show()
+
+def plot_kde_histograms(fractal_dims_by_class):
+    """ Plot KDE for fractal dimensions of each class. """
+    plt.figure(figsize=(12, 8))
+    
+    for class_name, fractal_dims in fractal_dims_by_class.items():
+        sns.kdeplot(fractal_dims, label=class_name)
+    
     plt.xlabel('Fractal Dimension')
     plt.ylabel('Density')
+    plt.title('KDE of Fractal Dimensions by Class')
     plt.legend()
     plt.tight_layout()
     plt.show()
 
-    # Box plot
-    df = pd.DataFrame([(class_name, dim) for class_name, dims in class_fractal_dims.items() for dim in dims],
-                      columns=['Class', 'Fractal Dimension'])
-    
-    plt.figure(figsize=(12, 6))
-    sns.boxplot(x='Class', y='Fractal Dimension', data=df)
-    plt.title('Distribution of Fractal Dimensions by Class')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.show()
+# Initialize histogram storage
+histograms = {}
+results = []
+class_fractal_dims = defaultdict(list)
 
-def calculate_fractal_dim_distance_matrix(class_fractal_dims):
-    classes = list(class_fractal_dims.keys())
-    n_classes = len(classes)
-    distance_matrix = np.zeros((n_classes, n_classes))
-    
-    for i, class1 in enumerate(classes):
-        for j, class2 in enumerate(classes):
-            if i != j:
-                mean1 = np.mean(class_fractal_dims[class1])
-                mean2 = np.mean(class_fractal_dims[class2])
-                distance_matrix[i, j] = abs(mean1 - mean2)
-    
-    return distance_matrix, classes
+dataset = LungCells(root=output_main_folder_path, train=True, transform=data_transforms['train'])
 
-def visualize_fractal_dim_distance_matrix(distance_matrix, class_names):
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(distance_matrix, annot=True, fmt=".4f", cmap="YlGnBu", 
-                xticklabels=class_names, yticklabels=class_names)
-    plt.title("Fractal Dimension Distance between Classes")
-    plt.tight_layout()
-    plt.show()
+train_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
 
-for loader in [train_loader, val_loader]:
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
+
+gdcb = GDCB(mfs_dim=25, nlv_bcd=6).to(device)
+
+# Main processing loop
+for loader in [train_loader]:
     for images, labels in tqdm(loader, desc="Processing images"):
-        process_batch(images, labels, loader.dataset)
+        histograms = process_batch(images, labels, dataset, histograms)
 
-# Visualize the fractal dimension distributions
-visualize_fractal_dimensions(class_fractal_dims)
+# Calculate and visualize EMD matrix
+emd_matrix, class_names = calculate_histogram_emds(histograms)
 
-# Calculate and visualize the fractal dimension distance matrix
-distance_matrix, class_names = calculate_fractal_dim_distance_matrix(class_fractal_dims)
+# Print and visualize the EMD matrix
+print("EMD Matrix:")
+print(pd.DataFrame(emd_matrix, index=class_names, columns=class_names))
+visualize_emd_matrix(emd_matrix, class_names)
 
-# Print the distance matrix
-print("Fractal Dimension Distance Matrix:")
-print(pd.DataFrame(distance_matrix, index=class_names, columns=class_names))
-
-# Visualize the distance matrix
-visualize_fractal_dim_distance_matrix(distance_matrix, class_names)
+# Plot KDE histograms
+plot_kde_histograms(class_fractal_dims)
 
 # Save results to CSV
 with open(csv_file_path, mode='w', newline='') as file:
