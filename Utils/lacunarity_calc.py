@@ -54,7 +54,7 @@ def getListOfFiles(dirName):
                 
     return allFiles
 
-
+class_lacunarity_stats = defaultdict(lambda: {"sum": 0, "count": 0})
     
 class LungCells(Dataset):
     def __init__(self, root, train=True, transform=None, label_cutoff=1024, load_all=True):
@@ -143,12 +143,19 @@ def process_single_image(image, label, dataset):
 
     class_name = dataset.classes[label]
     class_lacunarity[class_name]['Base'].append(base_value)
+    class_lacunarity_stats[class_name]["sum"] += base_value
+    class_lacunarity_stats[class_name]["count"] += 1
     results.append([class_name, base_value])
 
 # Process train and validation data
 for loader in [train_loader, val_loader]:
     for image, label in tqdm(loader, desc="Processing images"):
         process_single_image(image, label, loader.dataset)
+
+print("\nAverage Lacunarity for each class:")
+for class_name, stats in class_lacunarity_stats.items():
+    avg_lacunarity = stats["sum"] / stats["count"]
+    print(f"{class_name}: {avg_lacunarity:.4f}")
 
 # Save results to CSV
 with open(csv_file_path, mode='w', newline='') as file:
