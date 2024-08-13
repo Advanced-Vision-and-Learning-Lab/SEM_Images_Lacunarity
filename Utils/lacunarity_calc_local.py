@@ -20,6 +20,7 @@ from tqdm import tqdm
 import ntpath
 import math
 import cv2
+import pdb
 
 from Base_Lacunarity import Base_Lacunarity
 from DBC_Lacunarity import DBC_Lacunarity
@@ -33,6 +34,7 @@ csv_file_path = 'C:/Users/aksha/Peeples_Lab/SEM_Images_Lacunarity/Datasets/DC_ch
 # Data transforms
 data_transforms = {
     'transform': transforms.Compose([
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
     ])
 }
@@ -66,14 +68,16 @@ class QCO_2d(nn.Module):
         
         co_occurrence = quant_left * quant_right
         sta = co_occurrence.sum(dim=(-1, -2))
-        sta = sta / sta.sum(dim=(1, 2), keepdim=True)
-        
+        sta = sta / sta.sum(dim=(1, 2))
         q_levels_h = q_levels.expand(N, self.level_num, self.level_num)
         q_levels_w = q_levels_h.permute(0, 2, 1)
         
         output = torch.stack([q_levels_h, q_levels_w, sta], dim=1)
+        output = output.flatten(2).squeeze(0)
         
         return output, quant.squeeze(0), co_occurrence.squeeze(0)
+
+        
 
 class GDCB(nn.Module):
     def __init__(self, mfs_dim=25, nlv_bcd=6):
@@ -158,32 +162,18 @@ class LungCells(Dataset):
         return allFiles
 
 # Helper functions
-def calculate_emd(hist1, hist2):
-    hist1_np = hist1.cpu().numpy().astype(np.float32)
-    hist2_np = hist2.cpu().numpy().astype(np.float32)
+def calculate_emd(qco_output1, qco_output2):
+    # Ensure the count is the first column, then the bin centers
+    qco_output1 = qco_output1.transpose(0, 1) 
+    qco_output2 = qco_output2.transpose(0, 1)
+    qco_output1_swapped = torch.cat((qco_output1[:, 2:], qco_output1[:, :2]), dim=1)
+    qco_output2_swapped = torch.cat((qco_output2[:, 2:], qco_output2[:, :2]), dim=1)
     
-    min_val, max_val = hist1_np.min(), hist1_np.max()
-    min_val1, max_val1 = hist2_np.min(), hist2_np.max()
+    qco_output1_np = qco_output1_swapped.cpu().numpy().astype(np.float32)
+    qco_output2_np = qco_output2_swapped.cpu().numpy().astype(np.float32)
     
-    h, w = hist1_np.shape
-    h1, w1 = hist2_np.shape
+    emd_score, _, _ = cv2.EMD(qco_output1_np, qco_output2_np, cv2.DIST_L2)
     
-    x_centers = np.linspace(min_val, max_val, h)
-    y_centers = np.linspace(min_val, max_val, w)
-    x_centers1 = np.linspace(min_val1, max_val1, h1)
-    y_centers1 = np.linspace(min_val1, max_val1, w1)
-    
-    coords = np.array([(x, y) for x in x_centers for y in y_centers], dtype=np.float32)
-    coords1 = np.array([(x, y) for x in x_centers1 for y in y_centers1], dtype=np.float32)
-    
-    hist1_flat = hist1_np.reshape(-1)
-    hist2_flat = hist2_np.reshape(-1)
-    
-    emd_score, _, _ = cv2.EMD(
-        np.column_stack((hist1_flat, coords)), 
-        np.column_stack((hist2_flat, coords1)), 
-        cv2.DIST_L2
-    )
     return emd_score
 
 def calculate_emd_matrix(class_histograms):
@@ -194,8 +184,8 @@ def calculate_emd_matrix(class_histograms):
     for i, class1 in enumerate(classes):
         for j, class2 in enumerate(classes):
             if i != j:
-                hist1 = torch.stack(class_histograms[class1]).mean(dim=0)
-                hist2 = torch.stack(class_histograms[class2]).mean(dim=0)
+                hist1 = class_histograms[class1]
+                hist2 = class_histograms[class2]
                 emd_matrix[i, j] = calculate_emd(hist1, hist2)
     return emd_matrix, classes
 
@@ -269,7 +259,7 @@ def visualize_emd_matrix(emd_matrix, class_names):
 def main():
     # Initialize models
     base_lacunarity = Base_Lacunarity(kernel=(21,21), stride=(1,1)).to(device)
-    qco_2d = QCO_2d(scale=1, level_num=3).to(device)
+    qco_2d = QCO_2d(scale=1, level_num=20).to(device)
 
     # Initialize dataset and dataloader
     dataset = LungCells(root=output_main_folder_path, train=True, transform=data_transforms['transform'])
@@ -278,8 +268,6 @@ def main():
     # Initialize storage
     results = []
     class_lacunarity_values = defaultdict(list)
-    class_sta_sums = defaultdict(lambda: torch.zeros(3, 3).to(device))
-    class_sta_counts = defaultdict(int)
     class_histograms = defaultdict(list)
 
     # Process batches
@@ -289,34 +277,37 @@ def main():
 
         for i in range(len(labels)):
             class_name = dataset.classes[labels[i]]
-            lacunarity_value = torch.mean(base_values[i]).item()
-            
+            lacunarity_value = torch.mean(base_values[i], dim=0)
             class_lacunarity_values[class_name].append(lacunarity_value)
             
             output, _, _ = qco_2d(base_values[i])
-            sta = output[0, 2]
-
-            class_sta_sums[class_name] += sta
-            class_sta_counts[class_name] += 1
+            sta = output
             class_histograms[class_name].append(sta)
 
             results.append([class_name, lacunarity_value])
 
-    # Calculate and print average local lacunarity
-    print("\nAverage Local Lacunarity for each class:")
-    for class_name, lacunarity_values in class_lacunarity_values.items():
-        avg_lacunarity = np.mean(lacunarity_values)
-        print(f"{class_name}: {avg_lacunarity:.4f}")
+#visualize average lacunarity feature map
+#sum or log
 
-    # Calculate average sta for each class
-    class_sta_avgs = {class_name: sta_sum / class_sta_counts[class_name] 
-                      for class_name, sta_sum in class_sta_sums.items()}
+    # Compute average lacunarity for each class
+    average_lacunarity_per_class = {}
+    for class_name, lacunarity_list in class_lacunarity_values.items():
+        average_lacunarity_per_class[class_name] = torch.mean(torch.stack(lacunarity_list), dim=0)
+        print(average_lacunarity_per_class[class_name])
+
+    # Process the average lacunarity through QCO
+    class_qco_outputs = {}
+    for class_name, avg_lacunarity in average_lacunarity_per_class.items():
+        avg_lacunarity = avg_lacunarity.unsqueeze(0).to(device)
+        output, _, _ = qco_2d(avg_lacunarity)
+        class_qco_outputs[class_name] = output
+
 
     # Visualize the class distributions
-    visualize_class_sta_distributions(class_sta_avgs)
+    # visualize_class_sta_distributions(class_sta_avgs)
 
     # Calculate and visualize EMD matrix
-    emd_matrix, class_names = calculate_emd_matrix(class_histograms)
+    emd_matrix, class_names = calculate_emd_matrix(class_qco_outputs)
     print("EMD Matrix:")
     print(pd.DataFrame(emd_matrix, index=class_names, columns=class_names))
     visualize_emd_matrix(emd_matrix, class_names)
