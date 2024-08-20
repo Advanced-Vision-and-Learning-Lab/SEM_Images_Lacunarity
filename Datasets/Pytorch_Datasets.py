@@ -20,22 +20,7 @@ import matplotlib.pyplot as plt
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# This is for getting all images in a directory (including subdirs)
-def getListOfFiles(dirName):
-    # create a list of all files in a root dir
-    listOfFile = os.listdir(dirName)
-    allFiles = list()
-    for entry in listOfFile:
-        fullPath = os.path.join(dirName, entry)
-        if os.path.isdir(fullPath):
-            allFiles = allFiles + getListOfFiles(fullPath)
-        else:
-            allFiles.append(fullPath)
-                
-    return allFiles
-    
-
-    
+# Dataset
 class LungCells(Dataset):
     def __init__(self, root, train=True, transform=None, label_cutoff=1024, load_all=True):
         self.load_all = load_all
@@ -44,39 +29,23 @@ class LungCells(Dataset):
         self.data = []
         self.targets = []
         self.files = []
-        self.classes = ['Silver Nanoparticles (Ag-NP)', 'Crystalline Silica (CS)', 'Isocyanate (IPDI)', 
+        self.classes = ['Silver Nanoparticles (Ag-NP)', 'Crystalline Silica (CS)', 
                         'Nickel Oxide (NiO)', 'Untreated']
-        if train:
-            if self.load_all:
-                self._image_files = getListOfFiles(os.path.join(root))
-                for img_name in self._image_files:
-                    self.data.append(Image.open(img_name))
-                    self.targets.append((ntpath.basename(img_name).split('_')[0]))
-                    
-            label_encoder = preprocessing.LabelEncoder()
-            self.targets = label_encoder.fit_transform(self.targets)
-
-            for item in zip(self.data, self.targets):
-                self.files.append({
-                        "img": item[0],
-                        "label": item[1]
-                        })
+        
+        if self.load_all:
+            self._image_files = self.getListOfFiles(os.path.join(root))
+            for img_name in self._image_files:
+                self.data.append(Image.open(img_name))
+                self.targets.append((ntpath.basename(img_name).split('_')[0]))
                 
-        else:
-            if self.load_all:
-                self._image_files = getListOfFiles(os.path.join(root))
-                for img_name in self._image_files:
-                    self.data.append(Image.open(img_name))
-                    self.targets.append((ntpath.basename(img_name).split('_')[0]))
-                    
-            label_encoder = preprocessing.LabelEncoder()
-            self.targets = label_encoder.fit_transform(self.targets)
+        label_encoder = preprocessing.LabelEncoder()
+        self.targets = label_encoder.fit_transform(self.targets)
 
-            for item in zip(self.data, self.targets):
-                self.files.append({
-                        "img": item[0],
-                        "label": item[1]
-                        })
+        for item in zip(self.data, self.targets):
+            self.files.append({
+                    "img": item[0],
+                    "label": item[1]
+                    })
 
     def __len__(self):
         return len(self.files)
@@ -84,7 +53,6 @@ class LungCells(Dataset):
     def __getitem__(self, idx):       
         datafiles = self.files[idx]
         image = datafiles["img"]
-        # Convert to numpy array and normalize to be [0, 255]
         image = np.array(image)
         image = (image/image.max()) * 255
         target = datafiles["label"]
@@ -95,3 +63,15 @@ class LungCells(Dataset):
             image = to_pil(image)
             image = self.transform(image)
         return image, target
+
+    @staticmethod
+    def getListOfFiles(dirName):
+        listOfFile = os.listdir(dirName)
+        allFiles = []
+        for entry in listOfFile:
+            fullPath = os.path.join(dirName, entry)
+            if os.path.isdir(fullPath):
+                allFiles = allFiles + LungCells.getListOfFiles(fullPath)
+            else:
+                allFiles.append(fullPath)
+        return allFiles

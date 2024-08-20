@@ -29,12 +29,11 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 # Paths
 output_main_folder_path = 'Datasets/Lung Cells SEM Images_group1_DC_NEW'
-csv_file_path = 'C:/Users/aksha/Peeples_Lab/SEM_Images_Lacunarity/Datasets/DC_changed_lacunarity_results_all.csv'
 
 # Data transforms
 data_transforms = {
     'transform': transforms.Compose([
-        transforms.Resize((224, 224)),
+        # transforms.Resize((224, 224)),
         transforms.ToTensor(),
     ])
 }
@@ -79,31 +78,45 @@ class QCO_2d(nn.Module):
 
         
 
-class GDCB(nn.Module):
-    def __init__(self, mfs_dim=25, nlv_bcd=6):
-        super(GDCB, self).__init__()
-        self.mfs_dim = mfs_dim
-        self.nlv_bcd = nlv_bcd
-        self.pool = nn.ModuleList()
-        
-        for i in range(self.nlv_bcd-1):
-            self.pool.add_module(str(i), nn.MaxPool2d(kernel_size=i+2, stride=(i+2)//2))
-        self.ReLU = nn.ReLU()
-        
-    def forward(self, input):
-        tmp = []
-        for i in range(self.nlv_bcd-1):
-            output_item = self.pool[i](input)
-            tmp.append(torch.sum(torch.sum(output_item, dim=2, keepdim=True), dim=3, keepdim=True))
-        output = torch.cat(tuple(tmp), 2)
-        output = torch.log2(self.ReLU(output)+1)
-        X = [-math.log(i+2, 2) for i in range(self.nlv_bcd-1)]
-        X = torch.tensor(X).to(output.device)
-        X = X.view([1, 1, X.shape[0], 1])
-        meanX = torch.mean(X, 2, True)
-        meanY = torch.mean(output, 2, True)
-        Fracdim = torch.div(torch.sum((output-meanY)*(X-meanX), 2, True), torch.sum((X-meanX)**2, 2, True))
-        return Fracdim
+def fractal_dimension(image: np.ndarray) -> np.float64:
+    """ Calculates the fractal dimension of an image represented by a 2D numpy array.
+
+    The algorithm is a modified box-counting algorithm as described by Wen-Li Lee and Kai-Sheng Hsieh.
+
+    Args:
+        image: A 2D array containing a grayscale image. Format should be equivalent to cv2.imread(flags=0).
+               The size of the image has no constraints, but it needs to be square (m×m array).
+    Returns:
+        D: The fractal dimension Df, as estimated by the modified box-counting algorithm.
+    """
+    M = image.shape[0]  # image shape
+    G_min = image.min()  # lowest gray level (0=white)
+    G_max = image.max()  # highest gray level (255=black)
+    G = G_max - G_min + 1  # number of gray levels, typically 256
+    prev = -1  # used to check for plateaus
+    r_Nr = []
+
+    for L in range(2, (M // 2) + 1):
+        h = max(1, G // (M // L))  # minimum box height is 1
+        N_r = 0
+        r = L / M
+        for i in range(0, M, L):
+            boxes = [[]] * ((G + h - 1) // h)  # create enough boxes with height h to fill the fractal space
+            for row in image[i:i + L]:  # boxes that exceed bounds are shrunk to fit
+                for pixel in row[i:i + L]:
+                    height = (pixel - G_min) // h  # lowest box is at G_min and each is h gray levels tall
+                    boxes[height].append(pixel)  # assign the pixel intensity to the correct box
+            stddev = np.sqrt(np.var(boxes, axis=1))  # calculate the standard deviation of each box
+            stddev = stddev[~np.isnan(stddev)]  # remove boxes with NaN standard deviations (empty)
+            nBox_r = 2 * (stddev // h) + 1
+            N_r += sum(nBox_r)
+        if N_r != prev:  # check for plateauing
+            r_Nr.append([r, N_r])
+            prev = N_r
+    x = np.array([np.log(1 / point[0]) for point in r_Nr])  # log(1/r)
+    y = np.array([np.log(point[1]) for point in r_Nr])  # log(Nr)
+    D = np.polyfit(x, y, 1)[0]  # D = lim r -> 0 log(Nr)/log(1/r)
+    return D
 
 # Dataset
 class LungCells(Dataset):
@@ -253,22 +266,90 @@ def visualize_emd_matrix(emd_matrix, class_names):
     plt.tight_layout()
     plt.show()
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+def visualize_average_lacunarity(average_lacunarity_per_class):
+    n_classes = len(average_lacunarity_per_class)
+    fig, axes = plt.subplots(1, n_classes + 1, figsize=(20, 4), 
+                             gridspec_kw={'width_ratios': [1]*n_classes + [0.05]})
+    fig.suptitle('Average Lacunarity Feature Maps by Class')
+
+    # Determine global min and max for consistent color scaling
+    all_values = torch.cat(list(average_lacunarity_per_class.values()))
+    vmin, vmax = all_values.min().item(), all_values.max().item()
+
+    for idx, (class_name, avg_lacunarity) in enumerate(average_lacunarity_per_class.items()):
+        im = axes[idx].imshow(avg_lacunarity.squeeze(0).cpu().numpy(), cmap='viridis', vmin=vmin, vmax=vmax)
+        axes[idx].set_title(class_name)
+        axes[idx].axis('off')
+
+    # Add a colorbar to the right of the last image
+    cbar = fig.colorbar(im, cax=axes[-1])
+    cbar.set_label('Lacunarity Value')
+
+    plt.tight_layout()
+    plt.show()
 
 
-# Main execution
+
+def visualize_representative_lacunarity(representative_lacunarity):
+    n_classes = len(representative_lacunarity)
+    fig, axes = plt.subplots(1, n_classes + 1, figsize=(20, 4), 
+                             gridspec_kw={'width_ratios': [1]*n_classes + [0.05]})
+    fig.suptitle('Representative Lacunarity Feature Maps by Class')
+
+    # Determine global min and max for consistent color scaling
+    all_values = torch.cat([map.flatten() for map in representative_lacunarity.values()])
+    vmin, vmax = all_values.min().item(), all_values.max().item()
+
+    for idx, (class_name, rep_lacunarity) in enumerate(representative_lacunarity.items()):
+        im = axes[idx].imshow(rep_lacunarity.squeeze().cpu().numpy(), cmap='viridis', vmin=vmin, vmax=vmax)
+        axes[idx].set_title(class_name)
+        axes[idx].axis('off')
+
+    # Add a colorbar to the right of the last image
+    cbar = fig.colorbar(im, cax=axes[-1])
+    cbar.set_label('Lacunarity Value')
+
+    plt.tight_layout()
+    plt.show()
+
+import torch
+import torch.nn.functional as F
+
+def aggregate_lacunarity_maps(maps):
+    # Normalize each map by subtracting the mean and dividing by the standard deviation
+    normalized_maps = [(m - m.mean()) / (m.std() + 1e-8) for m in maps]
+
+    # Flatten the normalized maps for similarity calculation
+    flat_maps = torch.stack([m.view(-1) for m in normalized_maps])
+
+    # Calculate the cosine similarity matrix for all pairs
+    norm_flat_maps = F.normalize(flat_maps, p=2, dim=1)  # Normalize vectors to unit length (L2 norm)
+    sim_matrix = torch.mm(norm_flat_maps, norm_flat_maps.t())  # Matrix multiplication for cosine similarity
+
+    # Compute the weights as the mean of the similarity matrix along the rows
+    weights = sim_matrix.mean(dim=1)
+
+    # Weighted aggregation
+    weighted_sum = sum(map * weight for map, weight in zip(normalized_maps, weights))
+    
+    return weighted_sum / weights.sum()
+
+
+
 def main():
     # Initialize models
     base_lacunarity = Base_Lacunarity(kernel=(21,21), stride=(1,1)).to(device)
-    qco_2d = QCO_2d(scale=1, level_num=20).to(device)
+    qco_2d = QCO_2d(scale=1, level_num=5).to(device)
 
     # Initialize dataset and dataloader
     dataset = LungCells(root=output_main_folder_path, train=True, transform=data_transforms['transform'])
     train_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
 
     # Initialize storage
-    results = []
-    class_lacunarity_values = defaultdict(list)
-    class_histograms = defaultdict(list)
+    class_lacunarity_maps = defaultdict(list)
 
     # Process batches
     for images, labels in tqdm(train_loader, desc="Processing images"):
@@ -277,41 +358,28 @@ def main():
 
         for i in range(len(labels)):
             class_name = dataset.classes[labels[i]]
-            lacunarity_value = torch.mean(base_values[i], dim=0)
-            class_lacunarity_values[class_name].append(lacunarity_value)
-            
-            output, _, _ = qco_2d(base_values[i])
-            sta = output
-            class_histograms[class_name].append(sta)
+            lacunarity_map = base_values[i]
+            class_lacunarity_maps[class_name].append(lacunarity_map)
 
-            results.append([class_name, lacunarity_value])
+    # Aggregate lacunarity maps for each class
+    aggregated_lacunarity = {}
+    for class_name, lacunarity_maps in class_lacunarity_maps.items():
+        aggregated_lacunarity[class_name] = aggregate_lacunarity_maps(lacunarity_maps)
 
-#visualize average lacunarity feature map
-#sum or log
+    # Visualize aggregated lacunarity maps
+    visualize_representative_lacunarity(aggregated_lacunarity)
 
-    # Compute average lacunarity for each class
-    average_lacunarity_per_class = {}
-    for class_name, lacunarity_list in class_lacunarity_values.items():
-        average_lacunarity_per_class[class_name] = torch.mean(torch.stack(lacunarity_list), dim=0)
-        print(average_lacunarity_per_class[class_name])
-
-    # Process the average lacunarity through QCO
+    # Pass aggregated lacunarity maps through QCO
     class_qco_outputs = {}
-    for class_name, avg_lacunarity in average_lacunarity_per_class.items():
-        avg_lacunarity = avg_lacunarity.unsqueeze(0).to(device)
-        output, _, _ = qco_2d(avg_lacunarity)
+    for class_name, agg_map in aggregated_lacunarity.items():
+        output, _, _ = qco_2d(agg_map)
         class_qco_outputs[class_name] = output
-
-
-    # Visualize the class distributions
-    # visualize_class_sta_distributions(class_sta_avgs)
 
     # Calculate and visualize EMD matrix
     emd_matrix, class_names = calculate_emd_matrix(class_qco_outputs)
     print("EMD Matrix:")
     print(pd.DataFrame(emd_matrix, index=class_names, columns=class_names))
     visualize_emd_matrix(emd_matrix, class_names)
-
 
 if __name__ == "__main__":
     main()

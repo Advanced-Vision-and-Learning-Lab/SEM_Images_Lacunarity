@@ -1,274 +1,123 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Oct 28 10:15:33 2019
-Generate results from saved models
-@author: jpeeples
-"""
 
 ## Python standard libraries
-from sklearn.metrics import confusion_matrix
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
+import seaborn as sns
 import pandas as pd
-import os
-from sklearn.metrics import matthews_corrcoef
-import pickle
-import argparse
-import pdb
-
-
 ## PyTorch dependencies
 import torch
-import torch.nn as nn
-
-## Local external libraries
-from Utils.Generate_TSNE_visual import Generate_TSNE_visual
-from Demo_Parameters import Parameters
-from Prepare_Data import Prepare_DataLoaders
-from Datasets.Pytorch_Dataset_Names import Get_Class_Names
+from scipy import stats
 
 
-plt.ioff()
+def visualize_class_sta_distributions(class_sta_avgs):
+    data = []
+    for class_name, sta_avg in class_sta_avgs.items():
+        sta_np = sta_avg.cpu().numpy().flatten()
+        data.extend([(class_name, val) for val in sta_np])
+    
+    df = pd.DataFrame(data, columns=['Class', 'Statistical Texture Value'])
 
-def main(Params):
+    plt.figure(figsize=(12, 6))
+    sns.boxplot(x='Class', y='Statistical Texture Value', data=df)
+    plt.title('Distribution of Average Statistical Texture Values by Class')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
 
-    # Location of experimental results
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    fig_size = Params['fig_size']
-    font_size = Params['font_size']
-    
-    # Set up number of runs and class/plots names
-    NumRuns = Params['Splits'][Params['Dataset']]
-    plot_name = Params['Dataset'] + ' Test Confusion Matrix'
-    avg_plot_name = Params['Dataset'] + ' Test Average Confusion Matrix'
-    class_names = Get_Class_Names(Params['Dataset'], Params['data_dir'])
-    
-    # Name of dataset
-    Dataset = Params['Dataset']
-    
-    # Model(s) to be used
-    model_name = Params['Model_name']
-    
-    # Number of classes in dataset
-    num_classes = Params['num_classes'][Dataset]
-    
-    # Initialize arrays for results
-    cm_stack = np.zeros((len(class_names), len(class_names)))
-    cm_stats = np.zeros((len(class_names), len(class_names), NumRuns))
-    df_metrics_avg_rank = []
-    df_metrics_avg_score = []
-    FDR_scores = np.zeros((len(class_names), NumRuns))
-    log_FDR_scores = np.zeros((len(class_names), NumRuns))
-    accuracy = np.zeros(NumRuns)
-    MCC = np.zeros(NumRuns)
-    
-    for split in range(0, NumRuns):
-        torch.manual_seed(split)
-        np.random.seed(split)
-        np.random.seed(split)
-        torch.cuda.manual_seed(split)
-        torch.cuda.manual_seed_all(split)
-        torch.manual_seed(split)
-        
-        sub_dir = '{}/{}/{}/{}/{}/{}/Run_{}/'.format(Params['folder'],
-                                            Params["pooling_layer"],
-                                            Params["agg_func"],
-                                                 Params['mode'],
-                                                 Params['Dataset'],
-                                                 Params['Model_name'],
-                                                 split+1)
-        
-        # Load training and testing files (Python)
-        train_pkl_file = open(sub_dir + 'train_dict.pkl', 'rb')
-        train_dict = pickle.load(train_pkl_file)
-        train_pkl_file.close()
-    
-        test_pkl_file = open(sub_dir + 'test_dict.pkl', 'rb')
-        test_dict = pickle.load(test_pkl_file)
-        test_pkl_file.close()
-    
-        # Remove pickle files
-        del train_pkl_file, test_pkl_file
+    plt.figure(figsize=(12, 6))
+    sns.violinplot(x='Class', y='Statistical Texture Value', data=df)
+    plt.title('Distribution of Average Statistical Texture Values by Class')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
 
-        dataloaders_dict, test_dataset = Prepare_DataLoaders(Params, split)
+    n_classes = len(class_sta_avgs)
+    fig, axes = plt.subplots(1, n_classes + 1, figsize=(20 + 2, 4),
+                             gridspec_kw={'width_ratios': [1] * n_classes + [0.1]})
     
-       # Initialize the histogram model for this run
-        model, input_size = initialize_model(model_name, num_classes, dataloaders_dict, Params,
-                                               aggFunc = Params["agg_func"])
+    global_min = min(sta_avg.min().item() for sta_avg in class_sta_avgs.values())
+    global_max = max(sta_avg.max().item() for sta_avg in class_sta_avgs.values())
 
+    for i, (class_name, sta_avg) in enumerate(class_sta_avgs.items()):
+        im = sns.heatmap(sta_avg.cpu().numpy(), ax=axes[i], cmap='viridis',
+                         vmin=global_min, vmax=global_max, cbar=False)
+        axes[i].set_title(class_name)
+        axes[i].axis('off')
     
-        # Set device to cpu or gpu (if available)
-        device_loc = torch.device(device)
-        # Generate learning curves
-        # Plot_Learning_Curves(train_dict['train_acc_track'],
-        #                      train_dict['train_error_track'],
-        #                      train_dict['val_acc_track'],
-        #                      train_dict['val_error_track'],
-        #                      train_dict['best_epoch'],
-        #                      sub_dir)
+    fig.colorbar(im.collections[0], cax=axes[-1], orientation='vertical')
+    axes[-1].set_ylabel('Statistical Texture Value')
+    
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(12, 7))
+    for class_name, sta_avg in class_sta_avgs.items():
+        data = sta_avg.cpu().numpy().flatten()
+        plt.hist(data, bins=10, alpha=0.3, density=True, label=f'{class_name} (Histogram)')
+        kde = stats.gaussian_kde(data)
+        x_range = np.linspace(data.min(), data.max(), 200)
+        plt.plot(x_range, kde(x_range), label=f'{class_name} (KDE)')
+
+    plt.title('Distribution of Average Statistical Texture Values by Class (Histogram and KDE)')
+    plt.xlabel('Statistical Texture Value')
+    plt.ylabel('Density')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+def visualize_emd_matrix(emd_matrix, class_names):
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(emd_matrix, annot=True, fmt=".4f", cmap="YlGnBu", 
+                xticklabels=class_names, yticklabels=class_names)
+    plt.title("Earth Mover's Distance (EMD) between Classes")
+    plt.tight_layout()
+    plt.show()
 
 
-        # If parallelized, need to set change model
-        if torch.cuda.device_count() > 1:
-           print("Using", torch.cuda.device_count(), "GPUs!")
-           model = nn.DataParallel(model)
-  
-        model.load_state_dict(torch.load(sub_dir + 'Best_Weights.pt', map_location=device_loc))
-        model = model.to(device)
+def visualize_average_lacunarity(average_lacunarity_per_class):
+    n_classes = len(average_lacunarity_per_class)
+    fig, axes = plt.subplots(1, n_classes + 1, figsize=(20, 4), 
+                             gridspec_kw={'width_ratios': [1]*n_classes + [0.05]})
+    fig.suptitle('Average Lacunarity Feature Maps by Class')
 
-        if Params['xai']:
-            get_attributions (Params, dataloaders=dataloaders_dict, model=model)
-            
-        if (Params['TSNE_visual']):
-            print("Initializing Datasets and Dataloaders...")
-    
-            dataloaders_dict, test_dataset = Prepare_DataLoaders(params, split)
-            print('Creating TSNE Visual...')
-            
-            #Remove fully connected layer
-            if Params['Parallelize']:
-                try:
-                    model.module.fc = nn.Sequential()
-                except:
-                    model.module.classifier = nn.Sequential()
-            else:
-                try:
-                    model.fc = nn.Sequential()
-                except:
-                    model.classifier = nn.Sequential()
-    
-            # Generate TSNE visual
-            FDR_scores[:, split], log_FDR_scores[:, split] = Generate_TSNE_visual(
-                dataloaders_dict,
-                model, sub_dir, device, class_names)
-            
-        # Create CM for testing data
-        cm = confusion_matrix(test_dict['GT'], test_dict['Predictions'])
+    # Determine global min and max for consistent color scaling
+    all_values = torch.cat(list(average_lacunarity_per_class.values()))
+    vmin, vmax = all_values.min().item(), all_values.max().item()
 
-        # Create classification report
-        report = classification_report(test_dict['GT'], test_dict['Predictions'], target_names=class_names, output_dict=True)
-        
-        # Convert to dataframe and save as .CSV file
-        df = pd.DataFrame(report).transpose()
-        
-        # Save to CSV
-        df.to_csv((sub_dir + 'Classification_Report.csv'))
-    
-        # Confusion Matrix
-        np.set_printoptions(precision=2)
-        fig4, ax4 = plt.subplots(figsize=(fig_size, fig_size))
-        plot_confusion_matrix(cm, classes=class_names, title=plot_name, ax=ax4,
-                              fontsize=font_size)
-        fig4.savefig((sub_dir + 'Confusion Matrix.png'), dpi=fig4.dpi)
-        plt.close(fig4)
-        cm_stack = cm + cm_stack
-        cm_stats[:, :, split] = cm
-    
-        # Get accuracy of each cm
-        accuracy[split] = 100 * sum(np.diagonal(cm)) / sum(sum(cm))
-        # Write to text file
-        with open((sub_dir + 'Accuracy.txt'), "w") as output:
-            output.write(str(accuracy[split]))
-    
-        # Compute Matthews correlation coefficient
-        MCC[split] = matthews_corrcoef(test_dict['GT'], test_dict['Predictions'])
-    
-        # Write to text file
-        with open((sub_dir + 'MCC.txt'), "w") as output:
-            output.write(str(MCC[split]))
-        directory = os.path.dirname(os.path.dirname(sub_dir)) + '/'
-    
-        print('**********Run ' +  str(split + 1) + '  Finished**********')
-    
-    directory = os.path.dirname(os.path.dirname(sub_dir)) + '/'
-    np.set_printoptions(precision=2)
-    fig5, ax5 = plt.subplots(figsize=(fig_size, fig_size))
-    plot_avg_confusion_matrix(cm_stats, classes=class_names,
-                              title=avg_plot_name, ax=ax5, fontsize=font_size)
-    fig5.savefig((directory + 'Average Confusion Matrix.png'), dpi=fig5.dpi)
-    plt.close()
-    
-    
-    # Write to text file
-    with open((directory + 'Overall_Accuracy.txt'), "w") as output:
-        output.write('Average accuracy: ' + str(np.mean(accuracy)) + ' Std: ' + str(np.std(accuracy)))
-    
-    # Write to text file
-    with open((directory + 'Overall_MCC.txt'), "w") as output:
-        output.write('Average MCC: ' + str(np.mean(MCC)) + ' Std: ' + str(np.std(MCC)))
-    
-    # Write to text file
-    with open((directory + 'training_Overall_FDR.txt'), "w") as output:
-        output.write('Average FDR: ' + str(np.mean(FDR_scores, axis=1))
-                     + ' Std: ' + str(np.std(FDR_scores, axis=1)))
-    with open((directory + 'training_Overall_Log_FDR.txt'), "w") as output:
-        output.write('Average FDR: ' + str(np.mean(log_FDR_scores, axis=1))
-                     + ' Std: ' + str(np.std(log_FDR_scores, axis=1)))
-    
-    # Write list of accuracies and MCC for analysis
-    np.savetxt((directory + 'List_Accuracy.txt'), accuracy.reshape(-1, 1), fmt='%.2f')
-    np.savetxt((directory + 'List_MCC.txt'), MCC.reshape(-1, 1), fmt='%.2f')
-    
-    np.savetxt((directory + 'training_List_FDR_scores.txt'), FDR_scores, fmt='%.2E')
-    np.savetxt((directory + 'training_List_log_FDR_scores.txt'), log_FDR_scores, fmt='%.2f')
-    plt.close("all")
+    for idx, (class_name, avg_lacunarity) in enumerate(average_lacunarity_per_class.items()):
+        im = axes[idx].imshow(avg_lacunarity.squeeze(0).cpu().numpy(), cmap='viridis', vmin=vmin, vmax=vmax)
+        axes[idx].set_title(class_name)
+        axes[idx].axis('off')
+
+    # Add a colorbar to the right of the last image
+    cbar = fig.colorbar(im, cax=axes[-1])
+    cbar.set_label('Lacunarity Value')
+
+    plt.tight_layout()
+    plt.show()
 
 
-def parse_args():
-   parser = argparse.ArgumentParser(description='Run Angular Losses and Baseline experiments for dataset')
-   parser.add_argument('--save_results', default=True, action=argparse.BooleanOptionalAction,
-                       help='Save results of experiments(default: True)')
-   parser.add_argument('--folder', type=str, default='Saved_Models',
-                       help='Location to save models')
-   parser.add_argument('--kernel', type=int, default=None,
-                       help='Input kernel size')
-   parser.add_argument('--stride', type=int, default=None,
-                       help='Input stride size')
-   parser.add_argument('--padding', type=int, default=0,
-                       help='Input padding size')
-   parser.add_argument('--scales', type=float, nargs='+', default=[1],
-                   help='Input scales')
-   parser.add_argument('--num_levels', type=int, default=2,
-                       help='Input number of levels')
-   parser.add_argument('--pooling_layer', type=int, default=7,
-                       help='pooling layer selection: 1:max, 2:avg, 3:L2, 4:fractal, 5:Base_Lacunarity, 6:MS_Lacunarity, 7:DBC_Lacunarity')
-   parser.add_argument('--agg_func', type=int, default=1,
-                       help='agg func: 1:global, 2:local')
-   parser.add_argument('--data_selection', type=int, default=4,
-                       help='Dataset selection: 1:LeavesTex1200, 2:PlantVillage, 3:DeepWeeds, 4:LungCells')
-   parser.add_argument('--feature_extraction', default=True, action=argparse.BooleanOptionalAction,
-                       help='Flag for feature extraction. False, train whole model. True, only update \
-                        fully connected/encoder parameters (default: True)')
-   parser.add_argument('--use_pretrained', default=True, action=argparse.BooleanOptionalAction,
-                       help='Flag to use pretrained model from ImageNet or train from scratch (default: True)')
-   parser.add_argument('--xai', default=False, action=argparse.BooleanOptionalAction,
-                       help='enables xai interpretability')
-   parser.add_argument('--earlystoppping', type=int, default=10,
-                       help='early stopping for training')
-   parser.add_argument('--train_batch_size', type=int, default=16,
-                       help='input batch size for training (default: 128)')
-   parser.add_argument('--val_batch_size', type=int, default=32,
-                       help='input batch size for validation (default: 512)')
-   parser.add_argument('--test_batch_size', type=int, default=32,
-                       help='input batch size for testing (default: 256)')
-   parser.add_argument('--num_epochs', type=int, default=20,
-                       help='Number of epochs to train each model for (default: 50)')
-   parser.add_argument('--resize_size', type=int, default=256,
-                       help='Resize the image before center crop. (default: 256)')
-   parser.add_argument('--lr', type=float, default=0.01,
-                       help='learning rate (default: 0.01)')
-   parser.add_argument('--model', type=str, default='simple_model',
-                       help='backbone architecture to use (default: 0.01)')
-   parser.add_argument('--use-cuda', action='store_true', default=True,
-                       help='enables CUDA training')
-   args = parser.parse_args()
-   return args
 
+def visualize_representative_lacunarity(representative_lacunarity):
+    n_classes = len(representative_lacunarity)
+    fig, axes = plt.subplots(1, n_classes + 1, figsize=(20, 4), 
+                             gridspec_kw={'width_ratios': [1]*n_classes + [0.05]})
+    fig.suptitle('Representative Lacunarity Feature Maps by Class')
 
-if __name__ == "__main__":
-    args = parse_args()
-    use_cuda = args.use_cuda and torch.cuda.is_available()
-    device = torch.device("cuda" if use_cuda else "cpu")
-    params = Parameters(args)
-    main(params)
+    # Determine global min and max for consistent color scaling
+    all_values = torch.cat([map.flatten() for map in representative_lacunarity.values()])
+    vmin, vmax = all_values.min().item(), all_values.max().item()
+
+    for idx, (class_name, rep_lacunarity) in enumerate(representative_lacunarity.items()):
+        im = axes[idx].imshow(rep_lacunarity.squeeze().cpu().numpy(), cmap='viridis', vmin=vmin, vmax=vmax)
+        axes[idx].set_title(class_name)
+        axes[idx].axis('off')
+
+    # Add a colorbar to the right of the last image
+    cbar = fig.colorbar(im, cax=axes[-1])
+    cbar.set_label('Lacunarity Value')
+
+    plt.tight_layout()
+    plt.show()
+

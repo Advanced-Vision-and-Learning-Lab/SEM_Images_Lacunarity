@@ -3,17 +3,25 @@
 Main script for Lacunarity experiments
 """
 import argparse
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
 import matplotlib.pyplot as plt
 from Demo_Parameters import Parameters
-from Utils.Save_Results import save_results
 from Prepare_Data import Prepare_DataLoaders
-from Utils.Network_functions import initialize_model, train_model, test_model
 import os
+import torch
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import pandas as pd
+from collections import defaultdict
+from tqdm import tqdm
 import pdb
+from Utils.Base_Lacunarity import Base_Lacunarity
+from Utils.Fractal_Dimension import fractal_dimension
+from View_Results import *
+from Prepare_Data import Prepare_DataLoaders
+from Utils.Quantization import QCO_2d
+from Utils.Cosine_Similarity import aggregate_lacunarity_maps
+from Utils.Compute_EMD import calculate_emd_matrix
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 #Turn off plotting
@@ -24,15 +32,52 @@ def main(Params):
   
    # Name of dataset
    Dataset = Params['Dataset'] 
-  
+   texture_feature = Params['texture_feature']
    
    # Detect if we have a GPU available
    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+   if texture_feature == "Base_Lacunarity":
+      texture = Base_Lacunarity(kernel=(21,21), stride=(1,1)).to(device)
+   elif texture_feature == "Fractal_Dimension":
+      texture = fractal_dimension.to(device)
+   qco_2d = QCO_2d(scale=1, level_num=5).to(device)
 
-   print('Starting Experiments...')
-   dataloaders_dict = Prepare_DataLoaders(Params, split)
-   print('**********Run ' + str(split + 1) + model_name + ' Finished**********')
+   # Initialize dataset and dataloader
+   dataset, loader = Prepare_DataLoaders(Network_parameters=Params)
+
+   # Initialize storage
+   class_lacunarity_maps = defaultdict(list)
+
+   # Process batches
+   for images, labels in tqdm(loader, desc="Processing images"):
+      images = images.to(device)
+      base_values = texture(images)
+
+      for i in range(len(labels)):
+         class_name = dataset.classes[labels[i]]
+         lacunarity_map = base_values[i]
+         class_lacunarity_maps[class_name].append(lacunarity_map)
+
+   # Aggregate lacunarity maps for each class
+   aggregated_lacunarity = {}
+   for class_name, lacunarity_maps in class_lacunarity_maps.items():
+      aggregated_lacunarity[class_name] = aggregate_lacunarity_maps(lacunarity_maps)
+
+   # Visualize aggregated lacunarity maps
+   visualize_representative_lacunarity(aggregated_lacunarity)
+
+   # Pass aggregated lacunarity maps through QCO
+   class_qco_outputs = {}
+   for class_name, agg_map in aggregated_lacunarity.items():
+      output, _, _ = qco_2d(agg_map)
+      class_qco_outputs[class_name] = output
+
+   # Calculate and visualize EMD matrix
+   emd_matrix, class_names = calculate_emd_matrix(class_qco_outputs)
+   print("EMD Matrix:")
+   print(pd.DataFrame(emd_matrix, index=class_names, columns=class_names))
+   visualize_emd_matrix(emd_matrix, class_names)
      
 
 
@@ -42,45 +87,18 @@ def parse_args():
                        help='Save results of experiments(default: True)')
    parser.add_argument('--folder', type=str, default='Saved_Models',
                        help='Location to save models')
-   parser.add_argument('--kernel', type=int, default=3,
+   parser.add_argument('--kernel', type=int, default=21,
                        help='Input kernel size')
    parser.add_argument('--stride', type=int, default=1,
                        help='Input stride size')
    parser.add_argument('--padding', type=int, default=0,
                        help='Input padding size')
-   parser.add_argument('--scales', type=float, nargs='+', default=[1],
-                   help='Input scales')
-   parser.add_argument('--num_levels', type=int, default=2,
-                       help='Input number of levels')
-   parser.add_argument('--pooling_layer', type=int, default=5,
-                       help='pooling layer selection: 1:max, 2:avg, 3:L2, 4:fractal, 5:Base_Lacunarity, 6:MS_Lacunarity, 7:DBC_Lacunarity')
+   parser.add_argument('--texture_feature', type=int, default=1,
+                       help='texture_feature selection: 1:fractal_dimension, 2:Base_Lacunarity')
    parser.add_argument('--agg_func', type=int, default=2,
                        help='agg func: 1:global, 2:local')
    parser.add_argument('--data_selection', type=int, default=1,
-                       help='Dataset selection: 1:LungCells_DC, 2:LungCells_ME')
-   parser.add_argument('--feature_extraction', default=True, action=argparse.BooleanOptionalAction,
-                       help='Flag for feature extraction. False, train whole model. True, only update \
-                        fully connected/encoder parameters (default: True)')
-   parser.add_argument('--use_pretrained', default=True, action=argparse.BooleanOptionalAction,
-                       help='Flag to use pretrained model from ImageNet or train from scratch (default: True)')
-   parser.add_argument('--xai', default=False, action=argparse.BooleanOptionalAction,
-                       help='enables xai interpretability')
-   parser.add_argument('--earlystoppping', type=int, default=10,
-                       help='early stopping for training')
-   parser.add_argument('--train_batch_size', type=int, default=16,
-                       help='input batch size for training (default: 128)')
-   parser.add_argument('--val_batch_size', type=int, default=32,
-                       help='input batch size for validation (default: 512)')
-   parser.add_argument('--test_batch_size', type=int, default=32,
-                       help='input batch size for testing (default: 256)')
-   parser.add_argument('--num_epochs', type=int, default=20,
-                       help='Number of epochs to train each model for (default: 50)')
-   parser.add_argument('--resize_size', type=int, default=256,
-                       help='Resize the image before center crop. (default: 256)')
-   parser.add_argument('--lr', type=float, default=0.01,
-                       help='learning rate (default: 0.01)')
-   parser.add_argument('--model', type=str, default='simple_model',
-                       help='backbone architecture to use (default: 0.01)')
+                       help='Dataset selection: 1:LungCells_DC')
    parser.add_argument('--use-cuda', action='store_true', default=True,
                        help='enables CUDA training')
    args = parser.parse_args()

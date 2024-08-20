@@ -5,26 +5,19 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-def calculate_emd(hist1, hist2):
-    hist1_np = hist1.cpu().numpy().astype(np.float32)
-    hist2_np = hist2.cpu().numpy().astype(np.float32)
+# Helper functions
+def calculate_emd(qco_output1, qco_output2):
+    # Ensure the count is the first column, then the bin centers
+    qco_output1 = qco_output1.transpose(0, 1) 
+    qco_output2 = qco_output2.transpose(0, 1)
+    qco_output1_swapped = torch.cat((qco_output1[:, 2:], qco_output1[:, :2]), dim=1)
+    qco_output2_swapped = torch.cat((qco_output2[:, 2:], qco_output2[:, :2]), dim=1)
     
-    # Create coordinate arrays for 2D histogram
-    h, w = hist1_np.shape
-    h1, w1 = hist2_np.shape
-    #coords are dependent on quantization level
-    coords = np.array([(i, j) for i in range(h) for j in range(w)], dtype=np.float32)
+    qco_output1_np = qco_output1_swapped.cpu().numpy().astype(np.float32)
+    qco_output2_np = qco_output2_swapped.cpu().numpy().astype(np.float32)
     
-    # Flatten the 2D histograms
-    hist1_flat = hist1_np.reshape(-1)
-    hist2_flat = hist2_np.reshape(-1)
+    emd_score, _, _ = cv2.EMD(qco_output1_np, qco_output2_np, cv2.DIST_L2)
     
-    # Calculate EMD
-    emd_score, _, _ = cv2.EMD(
-        np.column_stack((hist1_flat, coords)), 
-        np.column_stack((hist2_flat, coords)), 
-        cv2.DIST_L2
-    )
     return emd_score
 
 def calculate_emd_matrix(class_histograms):
@@ -35,15 +28,7 @@ def calculate_emd_matrix(class_histograms):
     for i, class1 in enumerate(classes):
         for j, class2 in enumerate(classes):
             if i != j:
-                hist1 = torch.stack(class_histograms[class1]).mean(dim=0)
-                hist2 = torch.stack(class_histograms[class2]).mean(dim=0)
+                hist1 = class_histograms[class1]
+                hist2 = class_histograms[class2]
                 emd_matrix[i, j] = calculate_emd(hist1, hist2)
     return emd_matrix, classes
-
-def visualize_emd_matrix(emd_matrix, class_names):
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(emd_matrix, annot=True, fmt=".4f", cmap="YlGnBu", 
-                xticklabels=class_names, yticklabels=class_names)
-    plt.title("Earth Mover's Distance (EMD) between Classes")
-    plt.tight_layout()
-    plt.show()
