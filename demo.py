@@ -16,7 +16,7 @@ from collections import defaultdict
 from tqdm import tqdm
 import pdb
 from Utils.Base_Lacunarity import Base_Lacunarity
-from Utils.Fractal_Dimension import fractal_dimension
+from Utils.Fractal_Dimension import FractalDimensionModule
 from View_Results import *
 from Prepare_Data import Prepare_DataLoaders
 from Utils.Quantization import QCO_2d
@@ -31,6 +31,8 @@ plt.ioff()
 def main(Params):
   
    # Name of dataset
+   kernel = Params["kernel"]
+   stride = Params["stride"]
    Dataset = Params['Dataset'] 
    texture_feature = Params['texture_feature']
    
@@ -38,9 +40,9 @@ def main(Params):
    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
    if texture_feature == "Base_Lacunarity":
-      texture = Base_Lacunarity(kernel=(21,21), stride=(1,1)).to(device)
+      texture = Base_Lacunarity(kernel=(kernel, kernel), stride=(stride, stride)).to(device)
    elif texture_feature == "Fractal_Dimension":
-      texture = fractal_dimension.to(device)
+      texture = FractalDimensionModule(window_size=kernel, stride=stride).to(device)
    qco_2d = QCO_2d(scale=1, level_num=5).to(device)
 
    # Initialize dataset and dataloader
@@ -64,9 +66,9 @@ def main(Params):
    for class_name, lacunarity_maps in class_lacunarity_maps.items():
       aggregated_lacunarity[class_name] = aggregate_lacunarity_maps(lacunarity_maps)
 
-   # Visualize aggregated lacunarity maps
-   visualize_representative_lacunarity(aggregated_lacunarity)
-
+   # # Visualize aggregated lacunarity maps
+   # visualize_representative_lacunarity(aggregated_lacunarity)
+   
    # Pass aggregated lacunarity maps through QCO
    class_qco_outputs = {}
    for class_name, agg_map in aggregated_lacunarity.items():
@@ -87,14 +89,14 @@ def parse_args():
                        help='Save results of experiments(default: True)')
    parser.add_argument('--folder', type=str, default='Saved_Models',
                        help='Location to save models')
-   parser.add_argument('--kernel', type=int, default=21,
+   parser.add_argument('--kernel', type=int, default=63,
                        help='Input kernel size')
-   parser.add_argument('--stride', type=int, default=1,
+   parser.add_argument('--stride', type=int, default=16,
                        help='Input stride size')
    parser.add_argument('--padding', type=int, default=0,
                        help='Input padding size')
    parser.add_argument('--texture_feature', type=int, default=1,
-                       help='texture_feature selection: 1:fractal_dimension, 2:Base_Lacunarity')
+                       help='texture_feature selection: 1:Fractal_Dimension, 2:Base_Lacunarity')
    parser.add_argument('--agg_func', type=int, default=2,
                        help='agg func: 1:global, 2:local')
    parser.add_argument('--data_selection', type=int, default=1,

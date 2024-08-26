@@ -1,63 +1,60 @@
-# -*- coding: utf-8 -*-
-"""
-Functions to train/test model
-"""
-## Python standard libraries
-from __future__ import print_function
-from __future__ import division
-## PyTorch dependencies
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 
-def fractal_dimension(image: np.ndarray) -> np.float64:
-    """ Calculates the fractal dimension of an image represented by a 2D numpy array.
+class FractalDimensionModule(nn.Module):
+    def __init__(self, window_size, stride=1):
+        super(FractalDimensionModule, self).__init__()
+        self.window_size = window_size
+        self.stride = stride
+        self.sizes = 2 ** torch.arange(int(np.log2(window_size)), 1, -1, dtype=torch.float32)
+        self.log_sizes = torch.log(self.sizes)
 
-    The algorithm is a modified box-counting algorithm as described by Wen-Li Lee and Kai-Sheng Hsieh.
+    def boxcount_grayscale(self, Z):
+        results = []
+        for size in self.sizes:
+            size = int(size.item())
+            S_min = F.max_pool2d(-Z, size, stride=size) * -1
+            S_max = F.max_pool2d(Z, size, stride=size)
+            results.append((S_max - S_min).squeeze())
+        return results
 
-    Args:
-        image: A 2D array containing a grayscale image. Format should be equivalent to cv2.imread(flags=0).
-               The size of the image has no constraints, but it needs to be square (m×m array).
-    Returns:
-        D: The fractal dimension Df, as estimated by the modified box-counting algorithm.
-    """
-    M = image.shape[0]  # image shape
-    G_min = image.min()  # lowest gray level (0=white)
-    G_max = image.max()  # highest gray level (255=black)
-    G = G_max - G_min + 1  # number of gray levels, typically 256
-    prev = -1  # used to check for plateaus
-    r_Nr = []
+    def fractal_dimension_grayscale(self, differences):
+        d_b = torch.tensor([x.sum().item() for x in differences])
+        d_m = torch.tensor([x.mean().item() for x in differences])
+        
+        log_d_b = torch.log(d_b)
+        log_d_m = torch.log(d_m)
+        
+        coeffs_db = torch.linalg.lstsq(self.log_sizes.unsqueeze(1), log_d_b.unsqueeze(1)).solution
+        coeffs_dm = torch.linalg.lstsq(self.log_sizes.unsqueeze(1), log_d_m.unsqueeze(1)).solution
+        
+        return -coeffs_db.item(), -coeffs_dm.item()
 
-    for L in range(2, (M // 2) + 1):
-        h = max(1, G // (M // L))  # minimum box height is 1
-        N_r = 0
-        r = L / M
-        for i in range(0, M, L):
-            boxes = [[]] * ((G + h - 1) // h)  # create enough boxes with height h to fill the fractal space
-            for row in image[i:i + L]:  # boxes that exceed bounds are shrunk to fit
-                for pixel in row[i:i + L]:
-                    height = (pixel - G_min) // h  # lowest box is at G_min and each is h gray levels tall
-                    boxes[height].append(pixel)  # assign the pixel intensity to the correct box
-            stddev = np.sqrt(np.var(boxes, axis=1))  # calculate the standard deviation of each box
-            stddev = stddev[~np.isnan(stddev)]  # remove boxes with NaN standard deviations (empty)
-            nBox_r = 2 * (stddev // h) + 1
-            N_r += sum(nBox_r)
-        if N_r != prev:  # check for plateauing
-            r_Nr.append([r, N_r])
-            prev = N_r
-    x = np.array([np.log(1 / point[0]) for point in r_Nr])  # log(1/r)
-    y = np.array([np.log(point[1]) for point in r_Nr])  # log(Nr)
-    D = np.polyfit(x, y, 1)[0]  # D = lim r -> 0 log(Nr)/log(1/r)
-    return D
-    
-   
-def calculate_fractal_map(image, kernel_size, stride):
-    height, width = image.shape
-    fractal_map = np.zeros((height - kernel_size + 1) // stride, (width - kernel_size + 1) // stride)
-    
-    for i in range(0, height - kernel_size + 1, stride):
-        for j in range(0, width - kernel_size + 1, stride):
-            patch = image[i:i+kernel_size, j:j+kernel_size]
-            fractal_map[i//stride, j//stride] = fractal_dimension(patch)
-    
-    return fractal_map
+    def forward(self, X):
+        # Check if input is 4D (batch_size=1, channels=1, height, width)
+        if len(X.shape) == 4:
+            assert X.shape[0] == 1 and X.shape[1] == 1, "Input must have batch size 1 and 1 channel"
+            X = X.squeeze(0).squeeze(0)  # Remove batch and channel dimensions
+        else:
+            assert len(X.shape) == 2, "Input must be a 2D tensor or 4D tensor with batch size 1 and 1 channel"
+        
+        output_shape = (
+            (X.shape[0] - self.window_size) // self.stride + 1,
+            (X.shape[1] - self.window_size) // self.stride + 1
+        )
+        fractal_dimensions = torch.zeros(output_shape, dtype=torch.float32, device=X.device)
+        
+        unfold = F.unfold(X.unsqueeze(0).unsqueeze(0), 
+                          kernel_size=self.window_size, 
+                          stride=self.stride)
+        windows = unfold.transpose(1, 2).reshape(-1, self.window_size, self.window_size)
+        
+        for i, window in enumerate(windows):
+            differences = self.boxcount_grayscale(window.unsqueeze(0).unsqueeze(0))
+            fd, _ = self.fractal_dimension_grayscale(differences)
+            fractal_dimensions[i // output_shape[1], i % output_shape[1]] = fd
+        
+        # Return as a 4D tensor (batch_size=1, channels=1, height, width)
+        return fractal_dimensions.unsqueeze(0).unsqueeze(0)

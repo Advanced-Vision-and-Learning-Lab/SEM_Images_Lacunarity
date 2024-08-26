@@ -12,7 +12,7 @@ def Parameters(args):
     
     folder = args.folder
     texture_feature_ = args.texture_feature
-    texture_feature_names = {1:'fractal_dimension', 2:'Base_Lacunarity'}
+    texture_feature_names = {1:'Fractal_Dimension', 2:'Base_Lacunarity'}
     texture_feature = texture_feature_names[texture_feature_]
 
     agg_func_selection = args.agg_func
