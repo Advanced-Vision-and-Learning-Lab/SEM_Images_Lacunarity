@@ -29,7 +29,7 @@ class LungCells(Dataset):
         self.data = []
         self.targets = []
         self.files = []
-        self.classes = ['Silver Nanoparticles (Ag-NP)', 'Crystalline Silica (CS)', 
+        self.classes = ['Crystalline Silica (CS)', 
                         'Nickel Oxide (NiO)', 'Untreated']
         
         if self.load_all:

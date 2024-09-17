@@ -2,59 +2,75 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import pdb
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 class FractalDimensionModule(nn.Module):
-    def __init__(self, window_size, stride=1):
+    def __init__(self):
         super(FractalDimensionModule, self).__init__()
-        self.window_size = window_size
-        self.stride = stride
-        self.sizes = 2 ** torch.arange(int(np.log2(window_size)), 1, -1, dtype=torch.float32)
-        self.log_sizes = torch.log(self.sizes)
 
-    def boxcount_grayscale(self, Z):
-        results = []
-        for size in self.sizes:
-            size = int(size.item())
-            S_min = F.max_pool2d(-Z, size, stride=size) * -1
-            S_max = F.max_pool2d(Z, size, stride=size)
-            results.append((S_max - S_min).squeeze())
-        return results
-
-    def fractal_dimension_grayscale(self, differences):
-        d_b = torch.tensor([x.sum().item() for x in differences])
-        d_m = torch.tensor([x.mean().item() for x in differences])
+    def boxcount_grayscale(self, Z, k):
+        # Compute the local min and max pooling over the image
+        S_min = -F.max_pool2d(-Z, kernel_size=k, stride=k)
+        S_max = F.max_pool2d(Z, kernel_size=k, stride=k)
+        return S_max - S_min
+    
+    def fractal_dimension_grayscale(self, Z):
+        assert Z.dim() == 2, "Input must be a 2D tensor"
         
+        # Minimal dimension of image
+        p = min(Z.shape)
+        
+        # Greatest power of 2 less than or equal to p
+        n = 2 ** int(torch.floor(torch.log2(torch.tensor(p))))
+        
+        # Build successive box sizes (from 2**n down to 2**1)
+        sizes = 2 ** torch.arange(n.bit_length() - 1, 0, -1)
+        
+        # Box counting for each size
+        i_difference = []
+        for size in sizes:
+            i_difference.append(self.boxcount_grayscale(Z.unsqueeze(0).unsqueeze(0), size.item()))
+        
+        # D_B (based on sum)
+        d_b = torch.tensor([torch.sum(x).item() for x in i_difference])
+        
+        # D_M (based on mean)
+        d_m = torch.tensor([torch.mean(x).item() for x in i_difference])
+        
+        # Log of sizes
+        log_sizes = torch.log(sizes.float())
+        
+        # Log of d_b and d_m
         log_d_b = torch.log(d_b)
         log_d_m = torch.log(d_m)
         
-        coeffs_db = torch.linalg.lstsq(self.log_sizes.unsqueeze(1), log_d_b.unsqueeze(1)).solution
-        coeffs_dm = torch.linalg.lstsq(self.log_sizes.unsqueeze(1), log_d_m.unsqueeze(1)).solution
+        # Linear regression (least squares fitting using linalg.lstsq)
+        A = torch.stack([log_sizes, torch.ones_like(log_sizes)], dim=1)
         
-        return -coeffs_db.item(), -coeffs_dm.item()
+        # Coefficients for D_B
+        coeffs_db, _ = torch.linalg.lstsq(A, log_d_b.unsqueeze(1)).solution.squeeze()
+        
+        # Coefficients for D_M
+        coeffs_dm, _ = torch.linalg.lstsq(A, log_d_m.unsqueeze(1)).solution.squeeze()
+        
+        # Return the fractal dimensions (negative slope)
+        return -coeffs_db, -coeffs_dm
 
     def forward(self, X):
-        # Check if input is 4D (batch_size=1, channels=1, height, width)
-        if len(X.shape) == 4:
-            assert X.shape[0] == 1 and X.shape[1] == 1, "Input must have batch size 1 and 1 channel"
-            X = X.squeeze(0).squeeze(0)  # Remove batch and channel dimensions
-        else:
-            assert len(X.shape) == 2, "Input must be a 2D tensor or 4D tensor with batch size 1 and 1 channel"
+        # If input is 2D, reshape to 4D (batch_size=1, channel=1)
+        if X.dim() == 2:
+            X = X.unsqueeze(0).unsqueeze(0)
+        elif X.dim() == 3:
+            X = X.unsqueeze(0)
         
-        output_shape = (
-            (X.shape[0] - self.window_size) // self.stride + 1,
-            (X.shape[1] - self.window_size) // self.stride + 1
-        )
-        fractal_dimensions = torch.zeros(output_shape, dtype=torch.float32, device=X.device)
+        B, C, H, W = X.shape
+        assert C == 1, "Input must have 1 channel"
+
+        # Compute fractal dimensions for the entire image
+        fractal_dimensions = self.fractal_dimension_grayscale(X.squeeze(0).squeeze(0))
         
-        unfold = F.unfold(X.unsqueeze(0).unsqueeze(0), 
-                          kernel_size=self.window_size, 
-                          stride=self.stride)
-        windows = unfold.transpose(1, 2).reshape(-1, self.window_size, self.window_size)
-        
-        for i, window in enumerate(windows):
-            differences = self.boxcount_grayscale(window.unsqueeze(0).unsqueeze(0))
-            fd, _ = self.fractal_dimension_grayscale(differences)
-            fractal_dimensions[i // output_shape[1], i % output_shape[1]] = fd
-        
-        # Return as a 4D tensor (batch_size=1, channels=1, height, width)
-        return fractal_dimensions.unsqueeze(0).unsqueeze(0)
+        return fractal_dimensions
