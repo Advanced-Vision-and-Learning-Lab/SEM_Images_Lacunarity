@@ -1,25 +1,38 @@
 import torch
 import torch.nn.functional as F
 import pdb
+import matplotlib.pyplot as plt
 
-def aggregate_lacunarity_maps(maps):
-   # Normalize each map by subtracting the mean and dividing by the standard deviation
+def aggregate_lacunarity_maps(maps, class_name):
+    # Normalize each map by subtracting the mean and dividing by the standard deviation
     normalized_maps = [(m - m.mean()) / (m.std() + 1e-8) for m in maps]
 
     # Flatten the normalized maps for similarity calculation
     flat_maps = torch.stack([m.view(-1) for m in normalized_maps])
 
     # Calculate the cosine similarity matrix for all pairs
-    norm_flat_maps = F.normalize(flat_maps, p=2, dim=1)  # Normalize vectors to unit length (L2 norm)
-    sim_matrix = torch.mm(norm_flat_maps, norm_flat_maps.t())  # Matrix multiplication for cosine similarity
+    norm_flat_maps = F.normalize(flat_maps, p=2, dim=1)
+    sim_matrix = torch.mm(norm_flat_maps, norm_flat_maps.t())
 
     # Compute the weights as the mean of the similarity matrix along the rows
     weights = sim_matrix.mean(dim=1)
+    print(weights)
 
     # Weighted aggregation
     weighted_sum = sum(map * weight for map, weight in zip(normalized_maps, weights))
-    
-    return weighted_sum / weights.sum()
+    aggregated_map = weighted_sum / weights.sum()
+  
+    # Plot histogram
+    plt.figure(figsize=(10, 6))
+    all_values = torch.cat([m.view(-1) for m in maps]).cpu().numpy()
+    plt.hist(all_values, bins=50, edgecolor='black')
+    plt.title(f'Distribution of Lacunarity Maps for {class_name}')
+    plt.xlabel('Normalized Map Values')
+    plt.ylabel('Frequency')
+    plt.savefig(f'lacunarity_distribution_{class_name}.png')
+    plt.close()
+
+    return aggregated_map
 
 # def aggregate_lacunarity_maps(maps):
 #     # Stack the maps into a single tensor
@@ -36,3 +49,4 @@ def aggregate_lacunarity_maps(maps):
 
 
 #     return cos_sim
+

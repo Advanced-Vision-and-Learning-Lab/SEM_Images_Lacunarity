@@ -109,10 +109,25 @@ def visualize_class_sta_distributions(class_sta_avgs):
     plt.show()
 
 def visualize_emd_matrix(emd_matrix, class_names):
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(emd_matrix, annot=True, fmt=".4f", cmap="YlGnBu", 
-                xticklabels=class_names, yticklabels=class_names)
-    plt.title("Earth Mover's Distance (EMD) between Classes")
+    plt.figure(figsize=(12, 10))  # Increased figure size for better readability
+    
+    # Create the heatmap
+    ax = sns.heatmap(emd_matrix, annot=True, fmt=".4f", cmap="YlGnBu", 
+                     xticklabels=class_names, yticklabels=class_names,
+                     annot_kws={'size': 20}) 
+    
+    # Increase font size for the annotations (numbers in cells)
+    ax.set_xticklabels(ax.get_xticklabels(), fontsize=14)
+    ax.set_yticklabels(ax.get_yticklabels(), fontsize=14)
+    
+    # Increase font size for colorbar labels
+    cbar = ax.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=12)
+    
+    # Set title with larger font
+    plt.title("Earth Mover's Distance (EMD) between Classes", fontsize=16)
+    
+    # Adjust layout and display
     plt.tight_layout()
     plt.show()
 
@@ -121,7 +136,7 @@ def visualize_average_lacunarity(average_lacunarity_per_class):
     n_classes = len(average_lacunarity_per_class)
     fig, axes = plt.subplots(1, n_classes + 1, figsize=(20, 4), 
                              gridspec_kw={'width_ratios': [1]*n_classes + [0.05]})
-    fig.suptitle('Average Lacunarity Feature Maps by Class')
+    fig.suptitle('Aggregate Feature Maps by Class')
 
     # Determine global min and max for consistent color scaling
     all_values = torch.cat(list(average_lacunarity_per_class.values()))
@@ -134,7 +149,7 @@ def visualize_average_lacunarity(average_lacunarity_per_class):
 
     # Add a colorbar to the right of the last image
     cbar = fig.colorbar(im, cax=axes[-1])
-    cbar.set_label('Lacunarity Value')
+    cbar.set_label('Feature Value')
 
     plt.tight_layout()
     plt.show()
@@ -161,10 +176,10 @@ def visualize_representative_lacunarity(representative_lacunarity):
     # Add colorbar
     cbar_ax = fig.add_subplot(gs[0, -1])
     cbar = fig.colorbar(im, cax=cbar_ax)
-    cbar.set_label('Lacunarity Value')
+    cbar.set_label('Feature Value')
 
     # Add main title
-    fig.suptitle('Representative Lacunarity Feature Maps by Class', y=1.02)
+    fig.suptitle('Representative Feature Maps by Class', y=1.02)
 
     # Adjust layout
     plt.tight_layout()

@@ -54,6 +54,7 @@ class LungCells(Dataset):
         datafiles = self.files[idx]
         image = datafiles["img"]
         image = np.array(image)
+        image = image[:1024, :]
         image = (image/image.max()) * 255
         target = datafiles["label"]
 
