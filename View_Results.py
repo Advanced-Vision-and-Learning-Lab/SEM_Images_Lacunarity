@@ -51,6 +51,17 @@ def create_ranking_comparison_plot(toxicologist_ranking, emd_ranking, kappa_scor
     plt.savefig('ranking_comparison.png', bbox_inches='tight', dpi=300)
     plt.close()
 
+def visualize_kde_histograms(class_kde, all_features):
+    plt.figure(figsize=(10, 6))
+    x_range = np.linspace(min(all_features), max(all_features), 1000)
+    for class_name, kde in class_kde.items():
+        plt.plot(x_range, kde(x_range), label=class_name)
+    plt.title("KDE of Features by Class")
+    plt.xlabel("Feature Value")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.savefig('gap_kde_histogram.png')
+    plt.close()
 
 def visualize_class_sta_distributions(class_sta_avgs):
     data = []
@@ -155,7 +166,7 @@ def visualize_average_lacunarity(average_lacunarity_per_class):
     plt.show()
 
 
-def visualize_representative_lacunarity(representative_lacunarity):
+def visualize_representative_texture(representative_lacunarity):
     n_classes = len(representative_lacunarity)
     
     # Create figure with GridSpec

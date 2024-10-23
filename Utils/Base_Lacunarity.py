@@ -54,7 +54,7 @@ class Base_Lacunarity(nn.Module):
         
     def forward(self,x):
         # #Compute squared tensor
-        # x = ((self.normalize(x) + 1)/2)* 255
+        x = ((self.normalize(x) + 1)/2)* 255
         # pdb.set_trace()
         x = x*255
         squared_x_tensor = x ** 2

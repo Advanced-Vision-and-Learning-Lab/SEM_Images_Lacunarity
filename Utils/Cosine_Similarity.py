@@ -3,10 +3,11 @@ import torch.nn.functional as F
 import pdb
 import matplotlib.pyplot as plt
 
-def aggregate_lacunarity_maps(maps, class_name):
+def aggregate_texture_maps(maps, class_name):
     # Normalize each map by subtracting the mean and dividing by the standard deviation
     normalized_maps = [(m - m.mean()) / (m.std() + 1e-8) for m in maps]
-
+    print(class_name)
+    print(normalized_maps[0].shape)
     # Flatten the normalized maps for similarity calculation
     flat_maps = torch.stack([m.view(-1) for m in normalized_maps])
 
@@ -16,7 +17,7 @@ def aggregate_lacunarity_maps(maps, class_name):
 
     # Compute the weights as the mean of the similarity matrix along the rows
     weights = sim_matrix.mean(dim=1)
-    print(weights)
+ 
 
     # Weighted aggregation
     weighted_sum = sum(map * weight for map, weight in zip(normalized_maps, weights))
