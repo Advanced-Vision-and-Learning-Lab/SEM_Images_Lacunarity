@@ -7,6 +7,7 @@ import pdb
 def divide_image(image_path, output_folder, image_name, tile_size=(768, 512)):
     img = Image.open(image_path)
     img = img.crop((0, 0, img.width, 1024))
+    img = img.convert("L")  # Convert to grayscale
     img_width, img_height = img.size
     save_path = os.path.join(output_folder, f"{image_name}.png")
     img.save(save_path)
@@ -23,9 +24,9 @@ def divide_image(image_path, output_folder, image_name, tile_size=(768, 512)):
     #         count += 1
 
 # Path to the main folder containing the subfolders with images
-main_folder_path = 'Datasets/Lung Cells SEM Images_group1_DC_v2'
+main_folder_path = 'Datasets/Lung Cells SEM Images_group1_DC_NEW/'
 # Path to the new main output folder
-output_main_folder_path = 'Datasets/Lung Cells SEM Images_group1_DC_v2(Crop)'
+output_main_folder_path = 'Datasets/Lung Cells Untreated'
 
 # Create the main output folder if it doesn't exist
 os.makedirs(output_main_folder_path, exist_ok=True)

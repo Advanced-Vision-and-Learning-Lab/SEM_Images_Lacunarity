@@ -12,7 +12,7 @@ import pdb
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.gridspec import GridSpec
 
-def create_ranking_comparison_plot(toxicologist_ranking, emd_ranking, kappa_score):
+def create_ranking_comparison_plot(toxicologist_ranking, emd_ranking, kappa_score, texture_feature, agg_func):
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.axis('tight')
     ax.axis('off')
@@ -45,11 +45,13 @@ def create_ranking_comparison_plot(toxicologist_ranking, emd_ranking, kappa_scor
             cell.set_facecolor('#f0f0f0')
 
     # Add title
-    plt.title("Ranking Comparison and Kappa Score", fontsize=16, pad=20)
+    plt.title(f"Ranking Comparison and Kappa Score\nPooling Layer: {texture_feature}, Aggregation: {agg_func}", fontsize=16, pad=20)
 
-    # Save the figure
-    plt.savefig('ranking_comparison.png', bbox_inches='tight', dpi=300)
+    # Save the figure with the custom file name based on pooling_layer and agg_func
+    file_name = f'ranking_comparison_{texture_feature}__{agg_func}.png'
+    plt.savefig(file_name, bbox_inches='tight', dpi=300)
     plt.close()
+
 
 def visualize_kde_histograms(class_kde, all_features):
     plt.figure(figsize=(10, 6))
@@ -60,8 +62,7 @@ def visualize_kde_histograms(class_kde, all_features):
     plt.xlabel("Feature Value")
     plt.ylabel("Density")
     plt.legend()
-    plt.savefig('gap_kde_histogram.png')
-    plt.close()
+    plt.show()
 
 def visualize_class_sta_distributions(class_sta_avgs):
     data = []

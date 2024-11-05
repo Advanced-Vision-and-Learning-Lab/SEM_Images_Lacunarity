@@ -9,8 +9,10 @@ from Utils.Cosine_Similarity import *
 from View_Results import *
 from Utils.Compute_EMD import *
 
-def process_local_aggregation(texture_feature, dataset, loader, kernel, stride, device, levels):
+def process_local_aggregation(texture_feature, dataset, loader, kernel, stride, device, levels, Params):
     """Processes the local aggregation function."""
+    texture_feature =  Params["texture_feature"]
+    agg_func = Params["agg_func"]
     if texture_feature == "Base_Lacunarity":
         texture = Base_Lacunarity(kernel=(kernel, kernel), stride=(stride, stride)).to(device)
     elif texture_feature == "Fractal_Dimension":
@@ -30,7 +32,7 @@ def process_local_aggregation(texture_feature, dataset, loader, kernel, stride, 
             class_texture_maps[class_name].append(features[i])
 
     aggregated_texture = aggregate_class_texture_maps(class_texture_maps)
-    visualize_aggregated_maps(aggregated_texture, qco_2d)
+    visualize_aggregated_maps(aggregated_texture, qco_2d, texture_feature, agg_func)
 
 
 
@@ -39,12 +41,12 @@ def aggregate_class_texture_maps(class_texture_maps):
     aggregated_texture = {}
     for class_name, texture_maps in class_texture_maps.items():
         aggregated_texture[class_name] = aggregate_texture_maps(texture_maps, class_name)
-        print(aggregated_texture[class_name])
+        
     return aggregated_texture
 
 
 
-def visualize_aggregated_maps(aggregated_texture, qco_2d):
+def visualize_aggregated_maps(aggregated_texture, qco_2d, texture_feature, agg_func): 
     """Visualizes and processes the aggregated texture maps."""
     class_qco_outputs = {}
     class_sta_avgs = {}
@@ -58,8 +60,11 @@ def visualize_aggregated_maps(aggregated_texture, qco_2d):
     emd_matrix, class_names = calculate_emd_matrix(class_qco_outputs)
     visualize_emd_matrix(emd_matrix, class_names)
 
-    emd_ranking = rank_classes_by_emd(class_qco_outputs, reference_class='Untreated')
+
+    ranking = rank_classes_by_emd(class_qco_outputs, reference_class='Untreated')
+
     toxicologist_ranking = ['Nickel Oxide (NiO)', 'Crystalline Silica (CS)']
-    ranking_kappa = calculate_ranking_kappa(toxicologist_ranking, emd_ranking)
-    create_ranking_comparison_plot(toxicologist_ranking, emd_ranking, ranking_kappa)
+    ranking_kappa = calculate_ranking_kappa(toxicologist_ranking, ranking)
+    create_ranking_comparison_plot(toxicologist_ranking, ranking, ranking_kappa, texture_feature, agg_func)
     print("Ranking comparison plot saved as 'ranking_comparison.png")
+

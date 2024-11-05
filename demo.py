@@ -35,9 +35,9 @@ def main(Params):
 
     # Process based on the aggregation function type
     if agg_func == "global":
-        process_global_aggregation(texture_feature, dataset, loader, device)
+        process_global_aggregation(texture_feature, dataset, loader, device, Params)
     elif agg_func == "local":
-        process_local_aggregation(texture_feature, dataset, loader, kernel, stride, device, levels)
+        process_local_aggregation(texture_feature, dataset, loader, kernel, stride, device, levels, Params)
 
 
 def parse_args():
@@ -46,17 +46,17 @@ def parse_args():
                         help='Save results of experiments(default: True)')
     parser.add_argument('--folder', type=str, default='Saved_Models',
                         help='Location to save models')
-    parser.add_argument('--kernel', type=int, default=31,
+    parser.add_argument('--kernel', type=int, default=9,
                         help='Input kernel size')
     parser.add_argument('--stride', type=int, default=1,
                         help='Input stride size')
     parser.add_argument('--padding', type=int, default=0,
                         help='Input padding size')
-    parser.add_argument('--quant_levels', type=int, default=5,
+    parser.add_argument('--quant_levels', type=int, default=3,
                         help='Input kernel size')
     parser.add_argument('--texture_feature', type=int, default=3,
                         help='texture_feature selection: 1:Fractal_Dimension, 2:Base_Lacunarity, 3:GAP')
-    parser.add_argument('--agg_func', type=int, default=2,
+    parser.add_argument('--agg_func', type=int, default=1,
                         help='agg func: 1:global, 2:local')
     parser.add_argument('--data_selection', type=int, default=1,
                         help='Dataset selection: 1:LungCells_DC')
