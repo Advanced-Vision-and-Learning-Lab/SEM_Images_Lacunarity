@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 def aggregate_texture_maps(maps, class_name):
     # Normalize each map by subtracting the mean and dividing by the standard deviation
     normalized_maps = [(m - m.mean()) / (m.std() + 1e-8) for m in maps]
-    print(class_name)
-    print(normalized_maps[0].shape)
     # Flatten the normalized maps for similarity calculation
     flat_maps = torch.stack([m.view(-1) for m in normalized_maps])
 

@@ -24,13 +24,13 @@ def Parameters(args):
     Dataset_names = {1: 'LungCells_DC'}
     
     #Lacunarity Parameters
-    kernel = args.kernel
+    kernel = args.kernel_sizes
     stride = args.stride
     padding = args.padding
     quant_levels = args.quant_levels
         
     #Location of texture datasets
-    Data_dirs = {'LungCells_DC': 'Datasets/Lung Cells SEM Images_group1_DC_Unprocessed'}
+    Data_dirs = {'LungCells_DC': 'Datasets/Lung Cells SEM Images_group1_DC_Processed'}
     
     #channels in each dataset
     channels = {'LungCells_DC': 1}
@@ -45,7 +45,7 @@ def Parameters(args):
     Params = {'save_results': save_results,'folder': folder,
               'texture_feature': texture_feature, 'agg_func': agg_func,
             'Dataset': Dataset, 'data_dir': data_dir,
-            'kernel': args.kernel, 'stride': args.stride, 
+            'kernel': args.kernel_sizes, 'stride': args.stride, 
             'quant_levels':quant_levels, 'conv_padding': args.padding,
             'num_classes': num_classes, 'channels': channels}
     

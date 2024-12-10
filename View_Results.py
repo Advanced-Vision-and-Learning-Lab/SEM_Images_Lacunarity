@@ -211,20 +211,6 @@ def visualize_class_sta_distributions(class_sta_avgs):
     
     df = pd.DataFrame(data, columns=['Class', 'Statistical Texture Value'])
 
-    plt.figure(figsize=(12, 6))
-    sns.boxplot(x='Class', y='Statistical Texture Value', data=df)
-    plt.title('Distribution of Average Statistical Texture Values by Class')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.show()
-
-    plt.figure(figsize=(12, 6))
-    sns.violinplot(x='Class', y='Statistical Texture Value', data=df)
-    plt.title('Distribution of Average Statistical Texture Values by Class')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.show()
-
 
     plt.figure(figsize=(12, 7))
     for class_name, sta_avg in class_sta_avgs.items():

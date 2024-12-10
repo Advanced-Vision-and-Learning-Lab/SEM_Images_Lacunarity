@@ -8,6 +8,7 @@ from Utils.Quantization import QCO_2d
 from Utils.Cosine_Similarity import *
 from View_Results import *
 from Utils.Compute_EMD import *
+import matplotlib.pyplot as plt
 
 def process_local_aggregation(texture_feature, dataset, loader, kernel, stride, device, levels, Params):
     """Processes the local aggregation function."""
@@ -32,7 +33,61 @@ def process_local_aggregation(texture_feature, dataset, loader, kernel, stride, 
             class_texture_maps[class_name].append(features[i])
 
     aggregated_texture = aggregate_class_texture_maps(class_texture_maps)
-    visualize_aggregated_maps(aggregated_texture, qco_2d, texture_feature, agg_func)
+    display_aggregate_feature_maps(aggregated_texture, colormap="RdBu_r")
+    emd_difference  = visualize_aggregated_maps(aggregated_texture, qco_2d, texture_feature, agg_func)
+    return emd_difference
+
+
+def display_aggregate_feature_maps(aggregated_texture, colormap="coolwarm"):
+    """
+    Displays the aggregate feature maps for all classes side by side using a diverging color map.
+
+    Args:
+        aggregated_texture (dict): A dictionary containing aggregated feature maps for each class.
+        colormap (str): The name of the matplotlib colormap to use (default is 'coolwarm').
+    """
+    num_classes = len(aggregated_texture)
+    
+    # Create a figure with specific spacing
+    fig = plt.figure(figsize=(15, 4))
+    
+    # Create a grid with specific width ratios and spacing
+    gs = plt.GridSpec(1, num_classes + 1, figure=fig, 
+                     width_ratios=[1]*num_classes + [0.05],
+                     wspace=0.05) 
+    
+    # Create axes for the images
+    axes = []
+    for i in range(num_classes):
+        ax = fig.add_subplot(gs[0, i])
+        axes.append(ax)
+    
+    # Create axis for colorbar
+    cbar_ax = fig.add_subplot(gs[0, -1])
+    
+    # Plot images with equal aspect ratio
+    for ax, (class_name, agg_map) in zip(axes, aggregated_texture.items()):
+        transformed_map_np = agg_map.squeeze(0).cpu().numpy()
+        vmin, vmax = transformed_map_np.min(), transformed_map_np.max()
+        
+        img = ax.imshow(transformed_map_np, 
+                       cmap=colormap, 
+                       vmin=vmin, 
+                       vmax=vmax,
+                       aspect='auto')  # Ensure images fill the space
+        ax.set_title(class_name)
+        ax.axis('off')
+    
+    # Add colorbar with specific formatting
+    cbar = plt.colorbar(img, cax=cbar_ax)
+    cbar_ax.set_ylabel('Feature Value', 
+                      rotation=90,  # Vertical text
+                      labelpad=25)  # Increase spacing from colorbar
+    
+    # Adjust layout to remove excess whitespace
+    plt.subplots_adjust(wspace=0.3, right=0.92)
+    
+    return fig, axes
 
 
 
@@ -56,9 +111,9 @@ def visualize_aggregated_maps(aggregated_texture, qco_2d, texture_feature, agg_f
         class_qco_outputs[class_name] = output
         class_sta_avgs[class_name] = output[:, 2]  # Extract statistical texture values
 
-    visualize_class_sta_distributions(class_sta_avgs)
-    emd_matrix, class_names = calculate_emd_matrix(class_qco_outputs)
-    visualize_emd_matrix(emd_matrix, class_names)
+    # visualize_class_sta_distributions(class_sta_avgs)
+    emd_matrix, class_names, difference = calculate_emd_matrix(class_qco_outputs)
+    # visualize_emd_matrix(emd_matrix, class_names)
 
 
     ranking = rank_classes_by_emd(class_qco_outputs, reference_class='Untreated')
@@ -68,3 +123,4 @@ def visualize_aggregated_maps(aggregated_texture, qco_2d, texture_feature, agg_f
     create_ranking_comparison_plot(toxicologist_ranking, ranking, ranking_kappa, texture_feature, agg_func)
     print("Ranking comparison plot saved as 'ranking_comparison.png")
 
+    return difference

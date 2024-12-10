@@ -11,10 +11,9 @@ class QCO_2d(nn.Module):
 
     def forward(self, x):
         N, H, W = x.shape
-        cos_sim_min, cos_sim_max = x.min(), x.max()
-        q_levels = torch.linspace(cos_sim_min, cos_sim_max, self.level_num).to(x.device)
+        min, max = x.min(), x.max()
+        q_levels = torch.linspace(min, max, self.level_num).to(x.device)
         q_levels = q_levels.view(1, 1, -1)
-        
         x_reshaped = x.view(N, 1, H*W)
         sigma = 1 / (self.level_num / 2)
         quant = torch.exp(-(x_reshaped.unsqueeze(-1) - q_levels)**2 / (sigma**2))

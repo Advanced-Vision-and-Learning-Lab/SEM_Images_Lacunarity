@@ -44,8 +44,12 @@ def calculate_emd_matrix(class_histograms):
                 hist1 = class_histograms[class1]
                 hist2 = class_histograms[class2]
                 emd_matrix[i, j] = calculate_emd(hist1, hist2)
-    return emd_matrix, classes
+    difference = calculate_total_heatmap_matrix(emd_matrix)
+    return emd_matrix, classes, difference
 
+def calculate_total_heatmap_matrix(emd_matrix):
+    difference = emd_matrix[1,2] - emd_matrix[0,2]
+    return difference
 
 def calculate_ranking_kappa(toxicologist_ranking, emd_ranking):
     # Convert rankings to numeric values

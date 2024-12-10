@@ -12,7 +12,7 @@ from Utils.Compute_EMD import *
 import pdb
 from tqdm import tqdm
 
-def process_global_aggregation(texture_feature, dataset, loader, device, Params):
+def process_global_aggregation(texture_feature, dataset, loader, device, levels, Params):
     """Processes the global aggregation function and ranks classes based on EMD from the untreated class."""
     texture_feature = Params["texture_feature"]
     agg_func = Params["agg_func"]
@@ -62,52 +62,29 @@ def process_global_aggregation(texture_feature, dataset, loader, device, Params)
 
 
 
+
 def visualize_and_calculate_emd_for_global(class_global_features):
-    """Visualizes and calculates EMD for the global aggregation method using KDE directly with OpenCV's cv2.EMD."""
-    class_kde = {}
-    all_features = []
+    """Calculate EMD between each pair of classes in class_global_features."""
+    class_names = list(class_global_features.keys())
+    num_classes = len(class_names)
+    emd_matrix = np.zeros((num_classes, num_classes))  # EMD matrix
 
-    # Create KDEs for each class and store them in class_kde
-    for class_name, features_list in class_global_features.items():
-        features = np.concatenate(features_list)
-        all_features.extend(features)
-        kde = gaussian_kde(features)
-        class_kde[class_name] = kde
-    
-    visualize_kde_histograms(class_kde, all_features)
-
-    # Define common range for KDE evaluation
-    min_val = min(all_features)
-    max_val = max(all_features)
-    bins = 50  # You can adjust the number of bins for KDE resolution
-    bin_centers = np.linspace(min_val, max_val, bins)
-
-    # Calculate EMD for GAP features using KDE directly
-    emd_matrix = np.zeros((len(class_kde), len(class_kde)))
-    class_names = list(class_kde.keys())
-    
-    for i, class1 in enumerate(class_names):
-        for j, class2 in enumerate(class_names):
-            if i != j:
-                # Evaluate KDEs at the bin centers
-                kde_values1 = class_kde[class1](bin_centers)
-                kde_values2 = class_kde[class2](bin_centers)
-                
-                # Normalize KDE values to sum to 1 (to approximate probabilities)
-                kde_values1 /= kde_values1.sum()
-                kde_values2 /= kde_values2.sum()
-
-                # Convert to signature format: each row [weight, position]
-                signature1 = np.vstack([kde_values1, bin_centers]).T.astype(np.float32)
-                signature2 = np.vstack([kde_values2, bin_centers]).T.astype(np.float32)
-
-                # Calculate EMD using cv2.EMD
-                emd, _, _ = cv2.EMD(signature1, signature2, cv2.DIST_L2)
-                emd_matrix[i, j] = emd
+    for i, class_i in enumerate(class_names):
+        for j, class_j in enumerate(class_names):
+            if i >= j:  # No need to calculate for symmetric pairs
+                continue
+            
+            # Flatten features for comparison
+            features_i = np.concatenate(class_global_features[class_i], axis=0)
+            features_j = np.concatenate(class_global_features[class_j], axis=0)
+            
+            # Calculate 1D EMD using Wasserstein Distance
+            emd = wasserstein_distance(features_i, features_j)
+            emd_matrix[i, j] = emd
+            emd_matrix[j, i] = emd  # Symmetric
 
     visualize_emd_matrix(emd_matrix, class_names)
-    print("GAP EMD Matrix:")
-    print(pd.DataFrame(emd_matrix, index=class_names, columns=class_names))
 
-    # Return the EMD matrix and class names for further processing
     return emd_matrix, class_names
+
+
