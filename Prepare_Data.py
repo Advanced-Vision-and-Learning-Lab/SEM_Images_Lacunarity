@@ -11,7 +11,7 @@ import ssl
 ## PyTorch dependencies
 import torch
 ## Local external libraries
-from Datasets.Pytorch_Datasets import *
+from Datasets.Dataset_Class import *
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 

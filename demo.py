@@ -11,8 +11,8 @@ from Prepare_Data import Prepare_DataLoaders
 import os
 from View_Results import *
 from Utils.Compute_EMD import *
-from Utils.Local_aggregate import *
-from Utils.Global_aggregate import *
+from Utils.Local_Aggregate import *
+from Utils.Global_Aggregate import *
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 plt.ioff()  # Turn off plotting
@@ -65,9 +65,9 @@ def parse_args():
                         help='Input padding size')
     parser.add_argument('--quant_levels', nargs='+', type=int, default=[6],
                         help='List of quantization levels to iterate over')
-    parser.add_argument('--texture_feature', type=int, default=2,
+    parser.add_argument('--texture_feature', type=int, default=3,
                         help='Texture feature selection: 1:Fractal_Dimension, 2:Base_Lacunarity, 3:GAP')
-    parser.add_argument('--agg_func', type=int, default=1,
+    parser.add_argument('--agg_func', type=int, default=2,
                         help='Aggregation function: 1:global, 2:local')
     parser.add_argument('--data_selection', type=int, default=1,
                         help='Dataset selection: 1:LungCells_DC')

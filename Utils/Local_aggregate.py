@@ -33,7 +33,7 @@ def process_local_aggregation(texture_feature, dataset, loader, kernel, stride, 
             class_texture_maps[class_name].append(features[i])
 
     aggregated_texture = aggregate_class_texture_maps(class_texture_maps)
-    display_aggregate_feature_maps(aggregated_texture, colormap="RdBu_r")
+    display_aggregate_feature_maps(aggregated_texture, colormap="viridis")
     emd_difference  = visualize_aggregated_maps(aggregated_texture, qco_2d, texture_feature, agg_func)
     return emd_difference
 
@@ -41,6 +41,7 @@ def process_local_aggregation(texture_feature, dataset, loader, kernel, stride, 
 def display_aggregate_feature_maps(aggregated_texture, colormap="coolwarm"):
     """
     Displays the aggregate feature maps for all classes side by side using a diverging color map.
+    Feature maps are normalized between 0 and 1 using min-max normalization.
 
     Args:
         aggregated_texture (dict): A dictionary containing aggregated feature maps for each class.
@@ -54,7 +55,7 @@ def display_aggregate_feature_maps(aggregated_texture, colormap="coolwarm"):
     # Create a grid with specific width ratios and spacing
     gs = plt.GridSpec(1, num_classes + 1, figure=fig, 
                      width_ratios=[1]*num_classes + [0.05],
-                     wspace=0.05) 
+                     wspace=0.05)
     
     # Create axes for the images
     axes = []
@@ -68,24 +69,32 @@ def display_aggregate_feature_maps(aggregated_texture, colormap="coolwarm"):
     # Plot images with equal aspect ratio
     for ax, (class_name, agg_map) in zip(axes, aggregated_texture.items()):
         transformed_map_np = agg_map.squeeze(0).cpu().numpy()
-        vmin, vmax = transformed_map_np.min(), transformed_map_np.max()
         
-        img = ax.imshow(transformed_map_np, 
+        # Apply min-max normalization
+        p5 = np.percentile(transformed_map_np, 5)
+        p95 = np.percentile(transformed_map_np, 95)
+        normalized_map = np.clip((transformed_map_np - p5) / (p95 - p5), 0, 1)
+
+        
+        img = ax.imshow(normalized_map, 
                        cmap=colormap, 
-                       vmin=vmin, 
-                       vmax=vmax,
+                       vmin=0,  # Set fixed range for normalized values
+                       vmax=1,
                        aspect='auto')  # Ensure images fill the space
         ax.set_title(class_name)
         ax.axis('off')
     
     # Add colorbar with specific formatting
     cbar = plt.colorbar(img, cax=cbar_ax)
-    cbar_ax.set_ylabel('Feature Value', 
+    cbar_ax.set_ylabel('Normalized Feature Value', 
                       rotation=90,  # Vertical text
                       labelpad=25)  # Increase spacing from colorbar
     
     # Adjust layout to remove excess whitespace
     plt.subplots_adjust(wspace=0.3, right=0.92)
+    
+    # Display the plot
+    plt.show()
     
     return fig, axes
 
