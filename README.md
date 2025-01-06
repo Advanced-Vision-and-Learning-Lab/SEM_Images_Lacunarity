@@ -49,12 +49,12 @@ https://github.com/Advanced-Vision-and-Learning-Lab/SEM_Images_Lacunarity/tree/S
 	├── Demo_Parameters.py // Parameters file for demo.
 	├── Prepare_Data.py  // Load data for demo file.
 	├── View_Results.py // Run this after demo to view saved results.
-    ├── Datasets
+    	├── Datasets
 		├── Dataset_Class.py // Return Index for datasets
-	└── Image_Crop  //Image Preprocessing functions
+	├── Image_Crop  //Image Preprocessing functions
 		├── Remove_Outliers.py // Return images after image denoising
 		├── Image_Crop.py // Return images after removing metadata on the image
-	└── Utils  //utility functions
+	├── Utils  //utility functions
 		├── Base_Lacunarity.py // Compute base lacunarity pooling layer
 		├── Compute_EMD.py // Compute Earth Mover's Distance (EMD)
 		├── Cosine_Similarity.py // Compute cosine similarity for aggregate function
