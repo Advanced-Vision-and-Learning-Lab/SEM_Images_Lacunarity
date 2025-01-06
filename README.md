@@ -29,7 +29,9 @@ Please use [`Pytorch's website`](https://pytorch.org/get-started/locally/) to do
 1) Run `demo.py` in Python IDE (e.g., Spyder) or command line.
 
 2) For multiple kernels and quantizations, run the command below:
-	python demo.py --kernel_sizes 5 7 9 11 13 15 21 --quant_levels 2 3 4 5 6 7  
+```
+python demo.py --kernel_sizes 5 7 9 11 13 15 21 --quant_levels 2 3 4 5 6 7
+``` 
 
 
 ## Parameters
