@@ -33,7 +33,7 @@ def process_local_aggregation(texture_feature, dataset, loader, kernel, stride, 
             class_texture_maps[class_name].append(features[i])
 
     aggregated_texture = aggregate_class_texture_maps(class_texture_maps)
-    display_aggregate_feature_maps(aggregated_texture, colormap="viridis")
+    # display_aggregate_feature_maps(aggregated_texture, colormap="viridis")
     emd_difference  = visualize_aggregated_maps(aggregated_texture, qco_2d, texture_feature, agg_func)
     return emd_difference
 

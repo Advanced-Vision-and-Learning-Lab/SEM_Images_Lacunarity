@@ -30,7 +30,7 @@ def Parameters(args):
     quant_levels = args.quant_levels
         
     #Location of texture datasets
-    Data_dirs = {'LungCells_DC': 'Datasets/Lung Cells SEM Images_group1_DC_Processed'}
+    Data_dirs = {'LungCells_DC': 'Datasets/Lung Cells SEM Images_group1_DC_Processed_v2'}
     
     #channels in each dataset
     channels = {'LungCells_DC': 1}

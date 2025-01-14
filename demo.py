@@ -90,7 +90,7 @@ if __name__ == "__main__":
     results = main(params)
 
 
-    if args.agg_func == "local":
+    if args.agg_func == 2:
         def create_heatmap():
             # Extract unique kernel sizes and quantization levels
             kernel_sizes = sorted(set(k[0] for k in results.keys()))
@@ -145,7 +145,7 @@ if __name__ == "__main__":
             plt.title('EMD Difference Heatmap: Positive (Green) vs Negative (Red) Rankings', pad=20, fontsize=24)
 
             # Adjust layout
-            plt.tight_layout()
+            plt.tight_layout(pad=1.5)
             
             return plt
 
